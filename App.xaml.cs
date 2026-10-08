@@ -7,7 +7,7 @@ namespace CalendarWidget;
 public partial class App : Application
 {
     private static readonly Size DefaultWidgetSize = new(540, 740);
-    private static readonly Size MinWidgetSize = new(420, 600);
+    private static readonly Size MinWidgetSize = new(380, 540);
 
     private readonly DispatcherTimer _attachTimer = new() { Interval = TimeSpan.FromSeconds(2) };
     private readonly SettingsStore _settingsStore = new();

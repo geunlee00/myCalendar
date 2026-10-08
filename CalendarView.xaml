@@ -181,14 +181,19 @@
 
                     <!-- 머리: 큰 월 숫자. 끌어서 옮기고 휠로 달을 넘긴다. -->
                     <Grid Grid.Row="0" Background="Transparent" Cursor="SizeAll" MouseLeftButtonDown="Header_MouseLeftButtonDown" MouseWheel="Calendar_MouseWheel">
-                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                            <TextBlock x:Name="MonthNumberText" FontFamily="Georgia" FontSize="48" FontWeight="Bold" Typography.NumeralStyle="Lining" Foreground="{StaticResource RedBrush}" VerticalAlignment="Center" />
-                            <StackPanel Margin="12,2,0,0" VerticalAlignment="Center">
-                                <TextBlock x:Name="MonthNameText" FontFamily="Georgia" FontSize="15" FontWeight="Bold" Foreground="{StaticResource InkBrush}" />
-                                <TextBlock x:Name="YearText" Margin="0,3,0,0" FontSize="12" Foreground="{StaticResource SubInkBrush}" />
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <!-- 폭이 좁으면 오른쪽 버튼 자리를 지키고 왼쪽 월 이름을 말줄임으로 줄인다. -->
+                        <DockPanel VerticalAlignment="Center">
+                            <TextBlock x:Name="MonthNumberText" DockPanel.Dock="Left" FontFamily="Georgia" FontSize="48" FontWeight="Bold" Typography.NumeralStyle="Lining" Foreground="{StaticResource RedBrush}" VerticalAlignment="Center" />
+                            <StackPanel Margin="12,2,8,0" VerticalAlignment="Center">
+                                <TextBlock x:Name="MonthNameText" FontFamily="Georgia" FontSize="15" FontWeight="Bold" Foreground="{StaticResource InkBrush}" TextTrimming="CharacterEllipsis" />
+                                <TextBlock x:Name="YearText" Margin="0,3,0,0" FontSize="12" Foreground="{StaticResource SubInkBrush}" TextTrimming="CharacterEllipsis" />
                             </StackPanel>
-                        </StackPanel>
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                        </DockPanel>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                             <Button x:Name="SearchButton" Content="&#xE721;" FontFamily="Segoe MDL2 Assets" Width="28" Height="28" FontSize="13" Style="{StaticResource FlatButtonStyle}" Click="SearchButton_Click" />
                             <Button x:Name="PrevButton" Content="‹" Width="28" Height="28" FontSize="20" Style="{StaticResource FlatButtonStyle}" Click="PreviousMonth_Click" />
                             <Button x:Name="TodayButton" Height="28" Padding="8,0" FontSize="12" Foreground="{StaticResource RedBrush}" Style="{StaticResource FlatButtonStyle}" Click="Today_Click" />
@@ -260,12 +265,13 @@
                         </Grid.RowDefinitions>
                         <Border BorderBrush="{StaticResource InkBrush}" BorderThickness="0,0,0,1.5">
                             <DockPanel>
-                                <TextBlock x:Name="DdayText" DockPanel.Dock="Right" MaxWidth="220" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource RedBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                                <StackPanel Orientation="Horizontal">
+                                <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
                                     <TextBlock Text="MEMO" FontFamily="Georgia" FontSize="12" FontWeight="Bold" Foreground="{StaticResource RedBrush}" VerticalAlignment="Center" Margin="0,0,10,0" />
                                     <TextBlock x:Name="SelectedDateText" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource InkBrush}" VerticalAlignment="Center" />
                                     <TextBlock x:Name="SelectedHolidayText" Margin="8,0,0,0" FontSize="12" Foreground="{StaticResource RedBrush}" VerticalAlignment="Center" />
                                 </StackPanel>
+                                <!-- 날짜를 먼저 보여 주고, D-day는 남는 자리에서 오른쪽에 붙여 넘치면 말줄임으로 줄인다. -->
+                                <TextBlock x:Name="DdayText" Margin="12,0,0,0" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource RedBrush}" VerticalAlignment="Center" TextAlignment="Right" TextTrimming="CharacterEllipsis" />
                             </DockPanel>
                         </Border>
 
@@ -368,17 +374,35 @@
                     </Grid>
                 </Grid>
 
-                <!-- 오른쪽 아래 모서리: 끌어서 크기를 바꾼다. -->
-                <Thumb x:Name="ResizeGrip" HorizontalAlignment="Right" VerticalAlignment="Bottom" Width="16" Height="16" Margin="0,0,3,3"
-                       Cursor="SizeNWSE" DragDelta="ResizeGrip_DragDelta" DragCompleted="ResizeGrip_DragCompleted">
-                    <Thumb.Template>
-                        <ControlTemplate TargetType="Thumb">
-                            <Grid Background="Transparent">
-                                <Path Data="M 14,4 L 4,14 M 14,9 L 9,14" Stroke="#C2B8A5" StrokeThickness="1.4" StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
-                            </Grid>
+                <!-- 크기 조절: 네 변과 네 모서리 어디를 끌어도 된다. 오른쪽 아래에는 눈에 보이는 빗금을 둔다. -->
+                <Grid x:Name="ResizeHandles">
+                    <Grid.Resources>
+                        <ControlTemplate x:Key="InvisibleThumb" TargetType="Thumb">
+                            <Border Background="Transparent" />
                         </ControlTemplate>
-                    </Thumb.Template>
-                </Thumb>
+                        <Style TargetType="Thumb">
+                            <Setter Property="Template" Value="{StaticResource InvisibleThumb}" />
+                            <EventSetter Event="DragDelta" Handler="ResizeHandle_DragDelta" />
+                            <EventSetter Event="DragCompleted" Handler="ResizeHandle_DragCompleted" />
+                        </Style>
+                    </Grid.Resources>
+                    <Thumb Tag="Left" Width="6" HorizontalAlignment="Left" Margin="0,14,0,14" Cursor="SizeWE" />
+                    <Thumb Tag="Right" Width="6" HorizontalAlignment="Right" Margin="0,14,0,14" Cursor="SizeWE" />
+                    <Thumb Tag="Top" Height="6" VerticalAlignment="Top" Margin="14,0,14,0" Cursor="SizeNS" />
+                    <Thumb Tag="Bottom" Height="6" VerticalAlignment="Bottom" Margin="14,0,14,0" Cursor="SizeNS" />
+                    <Thumb Tag="Left,Top" Width="14" Height="14" HorizontalAlignment="Left" VerticalAlignment="Top" Cursor="SizeNWSE" />
+                    <Thumb Tag="Right,Top" Width="14" Height="14" HorizontalAlignment="Right" VerticalAlignment="Top" Cursor="SizeNESW" />
+                    <Thumb Tag="Left,Bottom" Width="14" Height="14" HorizontalAlignment="Left" VerticalAlignment="Bottom" Cursor="SizeNESW" />
+                    <Thumb x:Name="ResizeGrip" Tag="Right,Bottom" Width="18" Height="18" HorizontalAlignment="Right" VerticalAlignment="Bottom" Cursor="SizeNWSE">
+                        <Thumb.Template>
+                            <ControlTemplate TargetType="Thumb">
+                                <Grid Background="Transparent">
+                                    <Path Data="M 15,5 L 5,15 M 15,10 L 10,15" Stroke="#C2B8A5" StrokeThickness="1.4" StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+                                </Grid>
+                            </ControlTemplate>
+                        </Thumb.Template>
+                    </Thumb>
+                </Grid>
             </Grid>
         </Border>
 

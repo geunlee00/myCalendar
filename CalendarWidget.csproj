@@ -9,7 +9,7 @@
     <RootNamespace>CalendarWidget</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>app.ico</ApplicationIcon>
-    <Version>1.2.0</Version>
+    <Version>1.2.1</Version>
     <Product>바탕화면 달력</Product>
     <Description>바탕화면에 붙어 있는 탁상 달력·할 일 위젯</Description>
   </PropertyGroup>

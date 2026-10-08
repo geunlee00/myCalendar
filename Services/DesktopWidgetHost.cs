@@ -4,6 +4,17 @@ using System.Windows.Interop;
 
 namespace CalendarWidget.Services;
 
+/// <summary>크기를 바꿀 때 움직이는 가장자리. 모서리는 두 가장자리를 함께 씁니다.</summary>
+[Flags]
+public enum ResizeEdges
+{
+    None = 0,
+    Left = 1,
+    Top = 2,
+    Right = 4,
+    Bottom = 8
+}
+
 /// <summary>
 /// 바탕화면 아이콘 층(SHELLDLL_DefView) 안에 자식 창을 만들고 위젯 내용을 그 안에 그립니다.
 /// 바탕화면의 일부가 되므로 다른 앱 창 위로 올라오지 않고, Win + D(바탕화면 보기)를 눌러도 숨겨지지 않습니다.
@@ -28,6 +39,7 @@ internal static class DesktopWidgetHost
     private const int WsExToolWindow = 0x00000080;
     private const uint MonitorDefaultToNull = 0;
     private const uint MonitorDefaultToPrimary = 1;
+    private const uint MonitorDefaultToNearest = 2;
 
     private static IntPtr _zOrderTarget = HwndBottom;
     private static IntPtr _parent;
@@ -80,17 +92,42 @@ internal static class DesktopWidgetHost
         RaiseBoundsChanged();
     }
 
-    /// <summary>오른쪽 아래 모서리를 끄는 만큼(WPF 단위) 크기를 바꿉니다. 최소 크기보다 작아지지 않습니다.</summary>
-    public static void ResizeBy(double deltaWidth, double deltaHeight)
+    /// <summary>
+    /// 끄는 가장자리를 마우스가 움직인 만큼(WPF 단위) 옮겨 크기를 바꿉니다. 왼쪽·위쪽 가장자리를 끌면 위치도 함께 바뀝니다.
+    /// 최소 크기보다 작아지면 움직이는 가장자리 쪽을 멈춥니다.
+    /// </summary>
+    public static void ResizeBy(ResizeEdges edges, double deltaX, double deltaY)
     {
-        if (_source is null) return;
+        if (_source is null || edges == ResizeEdges.None) return;
 
         var scale = Scale;
         GetWindowRect(_source.Handle, out var rect);
-        var width = Math.Max(_minSize.Width * scale, rect.Right - rect.Left + deltaWidth * scale);
-        var height = Math.Max(_minSize.Height * scale, rect.Bottom - rect.Top + deltaHeight * scale);
-        SetWindowPos(_source.Handle, _zOrderTarget, 0, 0, (int)Math.Round(width), (int)Math.Round(height),
-            SwpNoMove | SwpNoActivate);
+        double left = rect.Left, top = rect.Top, right = rect.Right, bottom = rect.Bottom;
+        if (edges.HasFlag(ResizeEdges.Left)) left += deltaX * scale;
+        if (edges.HasFlag(ResizeEdges.Right)) right += deltaX * scale;
+        if (edges.HasFlag(ResizeEdges.Top)) top += deltaY * scale;
+        if (edges.HasFlag(ResizeEdges.Bottom)) bottom += deltaY * scale;
+
+        var minWidth = _minSize.Width * scale;
+        var minHeight = _minSize.Height * scale;
+        if (right - left < minWidth)
+        {
+            if (edges.HasFlag(ResizeEdges.Left)) left = right - minWidth;
+            else right = left + minWidth;
+        }
+        if (bottom - top < minHeight)
+        {
+            if (edges.HasFlag(ResizeEdges.Top)) top = bottom - minHeight;
+            else bottom = top + minHeight;
+        }
+
+        SetScreenBounds(new Rect32
+        {
+            Left = (int)Math.Round(left),
+            Top = (int)Math.Round(top),
+            Right = (int)Math.Round(right),
+            Bottom = (int)Math.Round(bottom)
+        }, 0);
     }
 
     public static void EndResize() => RaiseBoundsChanged();
@@ -106,40 +143,59 @@ internal static class DesktopWidgetHost
 
     /// <summary>
     /// 저장된 위치가 지금 연결된 모니터 안에 있으면 그곳에, 아니면 주 모니터 작업 영역의 오른쪽 아래에 놓습니다.
-    /// Win32 좌표는 DPI 배율을 곱한 실제 픽셀입니다.
+    /// 어느 쪽이든 놓일 모니터의 작업 영역보다 크면 줄이고, 밖으로 나간 부분은 안으로 당겨
+    /// 작은 화면에서도 위젯 전체(크기 조절 가장자리 포함)가 보이게 합니다. Win32 좌표는 DPI 배율을 곱한 실제 픽셀입니다.
     /// </summary>
     private static void Place(WidgetBounds? bounds, uint extraFlags)
     {
         if (_source is null) return;
 
         var scale = Scale;
-        var size = bounds is null ? _defaultSize : new Size(
-            Math.Max(_minSize.Width, bounds.Width),
-            Math.Max(_minSize.Height, bounds.Height));
-        var width = (int)Math.Round(size.Width * scale);
-        var height = (int)Math.Round(size.Height * scale);
-
-        Point32 position;
-        if (bounds is not null && IsOnAnyMonitor(new Rect32
-            {
-                Left = bounds.X, Top = bounds.Y, Right = bounds.X + width, Bottom = bounds.Y + height
-            }))
+        var target = default(Rect32);
+        if (bounds is not null)
         {
-            position = new Point32 { X = bounds.X, Y = bounds.Y };
+            var width = (int)Math.Round(Math.Max(_minSize.Width, bounds.Width) * scale);
+            var height = (int)Math.Round(Math.Max(_minSize.Height, bounds.Height) * scale);
+            target = new Rect32 { Left = bounds.X, Top = bounds.Y, Right = bounds.X + width, Bottom = bounds.Y + height };
         }
-        else
+        if (bounds is null || !IsOnAnyMonitor(target))
         {
             var margin = (int)Math.Round(24 * scale);
             var workArea = GetPrimaryWorkArea();
-            position = new Point32
+            var width = Math.Min((int)Math.Round(_defaultSize.Width * scale), workArea.Right - workArea.Left - 2 * margin);
+            var height = Math.Min((int)Math.Round(_defaultSize.Height * scale), workArea.Bottom - workArea.Top - 2 * margin);
+            target = new Rect32
             {
-                X = Math.Max(workArea.Left, workArea.Right - width - margin),
-                Y = Math.Max(workArea.Top, workArea.Bottom - height - margin)
+                Left = workArea.Right - width - margin,
+                Top = workArea.Bottom - height - margin,
+                Right = workArea.Right - margin,
+                Bottom = workArea.Bottom - margin
             };
         }
-        if (_parent != IntPtr.Zero) ScreenToClient(_parent, ref position);
 
-        SetWindowPos(_source.Handle, _zOrderTarget, position.X, position.Y, width, height, SwpNoActivate | extraFlags);
+        SetScreenBounds(FitIntoWorkArea(target), extraFlags);
+    }
+
+    /// <summary>사각형이 걸친 모니터의 작업 영역보다 크면 줄이고, 밖으로 나간 부분은 안으로 당깁니다.</summary>
+    private static Rect32 FitIntoWorkArea(Rect32 rect)
+    {
+        var workArea = GetWorkAreaNear(rect);
+        var width = Math.Min(rect.Right - rect.Left, workArea.Right - workArea.Left);
+        var height = Math.Min(rect.Bottom - rect.Top, workArea.Bottom - workArea.Top);
+        var left = Math.Clamp(rect.Left, workArea.Left, workArea.Right - width);
+        var top = Math.Clamp(rect.Top, workArea.Top, workArea.Bottom - height);
+        return new Rect32 { Left = left, Top = top, Right = left + width, Bottom = top + height };
+    }
+
+    /// <summary>화면 좌표(실제 픽셀) 사각형으로 위젯을 옮기고 크기를 바꿉니다. 바탕화면 안에 있으면 바탕화면 기준 좌표로 바꿉니다.</summary>
+    private static void SetScreenBounds(Rect32 rect, uint extraFlags)
+    {
+        if (_source is null) return;
+
+        var position = new Point32 { X = rect.Left, Y = rect.Top };
+        if (_parent != IntPtr.Zero) ScreenToClient(_parent, ref position);
+        SetWindowPos(_source.Handle, _zOrderTarget, position.X, position.Y,
+            rect.Right - rect.Left, rect.Bottom - rect.Top, SwpNoActivate | extraFlags);
     }
 
     private static void RaiseBoundsChanged()
@@ -175,10 +231,14 @@ internal static class DesktopWidgetHost
 
     private static bool IsOnAnyMonitor(Rect32 rect) => MonitorFromRect(ref rect, MonitorDefaultToNull) != IntPtr.Zero;
 
-    private static Rect32 GetPrimaryWorkArea()
+    private static Rect32 GetPrimaryWorkArea() => GetWorkArea(MonitorFromPoint(new Point32(), MonitorDefaultToPrimary));
+
+    private static Rect32 GetWorkAreaNear(Rect32 rect) => GetWorkArea(MonitorFromRect(ref rect, MonitorDefaultToNearest));
+
+    private static Rect32 GetWorkArea(IntPtr monitor)
     {
         var info = new MonitorInfo { Size = Marshal.SizeOf<MonitorInfo>() };
-        GetMonitorInfo(MonitorFromPoint(new Point32(), MonitorDefaultToPrimary), ref info);
+        GetMonitorInfo(monitor, ref info);
         return info.WorkArea;
     }
 
@@ -189,12 +249,6 @@ internal static class DesktopWidgetHost
             var pos = Marshal.PtrToStructure<WindowPos>(lParam);
             pos.InsertAfter = _zOrderTarget;
             pos.Flags &= ~SwpNoZOrder;
-            if ((pos.Flags & SwpNoSize) == 0)
-            {
-                var scale = Scale;
-                pos.Width = Math.Max(pos.Width, (int)Math.Round(_minSize.Width * scale));
-                pos.Height = Math.Max(pos.Height, (int)Math.Round(_minSize.Height * scale));
-            }
             Marshal.StructureToPtr(pos, lParam, false);
         }
 

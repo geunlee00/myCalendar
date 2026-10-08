@@ -1205,10 +1205,14 @@ public partial class CalendarView : UserControl
         if (e.ButtonState == MouseButtonState.Pressed) DesktopWidgetHost.BeginDrag();
     }
 
-    private void ResizeGrip_DragDelta(object sender, DragDeltaEventArgs e) =>
-        DesktopWidgetHost.ResizeBy(e.HorizontalChange, e.VerticalChange);
+    /// <summary>가장자리 손잡이를 끄는 만큼 그 가장자리를 옮깁니다. 손잡이의 Tag에 움직일 가장자리가 적혀 있습니다.</summary>
+    private void ResizeHandle_DragDelta(object sender, DragDeltaEventArgs e)
+    {
+        if (sender is Thumb { Tag: string tag } && Enum.TryParse<ResizeEdges>(tag, out var edges))
+            DesktopWidgetHost.ResizeBy(edges, e.HorizontalChange, e.VerticalChange);
+    }
 
-    private void ResizeGrip_DragCompleted(object sender, DragCompletedEventArgs e) => DesktopWidgetHost.EndResize();
+    private void ResizeHandle_DragCompleted(object sender, DragCompletedEventArgs e) => DesktopWidgetHost.EndResize();
 
     private void MenuButton_Click(object sender, RoutedEventArgs e)
     {

@@ -87,7 +87,7 @@ Click a result (or press Enter) to jump to that day. **Esc** closes the search.
 | To do this | Do this |
 |---|---|
 | Move | **Drag** the top area (below the rings, or the big month number) |
-| Resize | Drag the **hatched corner** at the bottom-right |
+| Resize | Drag any **edge or corner** (the bottom-right has a hatched grip) |
 | Reset | `⋯` menu → **Reset position and size** |
 
 ### `⋯` menu
