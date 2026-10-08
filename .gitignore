@@ -1,0 +1,9 @@
+# 빌드 결과물
+bin/
+obj/
+
+# Visual Studio / Rider 개인 설정
+.vs/
+.idea/
+*.user
+*.suo
