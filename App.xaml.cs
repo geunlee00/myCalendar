@@ -29,6 +29,7 @@ public partial class App : Application
         }
 
         _settings = _settingsStore.Load();
+        if (Loc.FromCode(_settings.Language) is { } language) Loc.Set(language);
         if (!_settings.AutoStartInitialized)
         {
             // 처음 실행할 때 한 번만 자동 실행을 켠다. 이후에는 메뉴에서 사용자가 정한 대로 둔다.
@@ -47,6 +48,17 @@ public partial class App : Application
         _view.BackgroundTransparencyChanged += transparency =>
         {
             _settings.BackgroundTransparency = transparency;
+            _settingsStore.Save(_settings);
+        };
+        _view.ShowHolidays = _settings.ShowKoreanHolidays ?? Loc.Current == AppLanguage.Korean;
+        _view.ShowHolidaysChanged += show =>
+        {
+            _settings.ShowKoreanHolidays = show;
+            _settingsStore.Save(_settings);
+        };
+        _view.LanguageChanged += language =>
+        {
+            _settings.Language = Loc.ToCode(language);
             _settingsStore.Save(_settings);
         };
         _attachTimer.Tick += (_, _) => TryShowWidget();

@@ -9,6 +9,12 @@ public sealed class AppSettings
 {
     public WidgetBounds? Bounds { get; set; }
 
+    /// <summary>화면 언어(ko, en). 비어 있으면 Windows 표시 언어를 따릅니다.</summary>
+    public string? Language { get; set; }
+
+    /// <summary>대한민국 공휴일 표시. 비어 있으면 처음 언어를 따릅니다(한국어면 켜고, 아니면 끕니다).</summary>
+    public bool? ShowKoreanHolidays { get; set; }
+
     /// <summary>카드 배경 투명도. 0이면 불투명, 1이면 투명합니다.</summary>
     public double BackgroundTransparency { get; set; }
 
