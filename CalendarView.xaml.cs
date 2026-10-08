@@ -34,6 +34,10 @@ public partial class CalendarView : UserControl
     private static readonly Brush DoneChipBrush = Freeze(new SolidColorBrush(Color.FromRgb(0xF4, 0xF0, 0xE8)));
     private static readonly Brush DoneTextBrush = Freeze(new SolidColorBrush(Color.FromRgb(0xA8, 0xA0, 0x90)));
     private static readonly Brush GridLineBrush = Freeze(new SolidColorBrush(Color.FromRgb(0xE6, 0xDD, 0xCB)));
+    private static readonly Brush RangeBrush = Freeze(new SolidColorBrush(Color.FromRgb(0xD9, 0xE4, 0xEF)));
+    private static readonly Brush RangeTextBrush = Freeze(new SolidColorBrush(Color.FromRgb(0x2E, 0x4A, 0x6B)));
+    private static readonly Brush DoneRangeBrush = Freeze(new SolidColorBrush(Color.FromRgb(0xEC, 0xEF, 0xF3)));
+    private static readonly Brush SubInkBrush = Freeze(new SolidColorBrush(Color.FromRgb(0x8A, 0x81, 0x72)));
     private static readonly Brush HoleBrush = Freeze(new SolidColorBrush(Color.FromArgb(0x99, 0x3A, 0x34, 0x2C)));
     private static readonly Brush WireEdgeBrush = Freeze(new SolidColorBrush(Color.FromRgb(0x6E, 0x74, 0x7C)));
     private static readonly Brush WireBrush = Freeze(new LinearGradientBrush(
@@ -45,7 +49,7 @@ public partial class CalendarView : UserControl
         0));
 
     // 날짜 칸 안의 일정 한 줄 높이와, 날짜 숫자 줄이 차지하는 높이(WPF 단위).
-    private const double ChipHeight = 17;
+    private const double ChipHeight = 16;
     private const double DayHeaderHeight = 28;
 
     // 메모장 가로줄 간격. 할 일 한 줄 높이(TaskItemStyle)와 같다.
@@ -59,7 +63,17 @@ public partial class CalendarView : UserControl
     private readonly ListCollectionView _selectedDayTasks;
     private readonly DispatcherTimer _dayChangeTimer = new() { Interval = TimeSpan.FromMinutes(1) };
     private DateTime _displayMonth = new(DateTime.Today.Year, DateTime.Today.Month, 1);
+    // 고른 기간. 하루만 골랐으면 시작과 끝이 같다.
     private DateTime _selectedDate = DateTime.Today;
+    private DateTime _selectedEndDate = DateTime.Today;
+
+    // 끌거나 Shift+클릭으로 기간을 고를 때 기준이 되는 날짜와, 끄는 중인지 여부.
+    private DateTime _selectionAnchor = DateTime.Today;
+    private bool _isDraggingSelection;
+
+    // 여러 날 일정마다 날짜 칸 안에서 차지하는 줄 번호. 날마다 같은 줄에 그려야 막대가 이어진다.
+    private Dictionary<CalendarTask, int> _lanes = [];
+    private double _cellWidth = 70;
     private DateTime _renderedToday = DateTime.Today;
     private int _chipsPerDay = 2;
     private double _backgroundTransparency;
@@ -112,7 +126,8 @@ public partial class CalendarView : UserControl
 
         // 목록에는 선택한 날짜의 할 일만, 안 끝낸 일을 먼저 입력한 순서대로 보여 준다.
         _selectedDayTasks = (ListCollectionView)CollectionViewSource.GetDefaultView(_tasks);
-        _selectedDayTasks.Filter = item => item is CalendarTask task && task.Date.Date == _selectedDate;
+        _selectedDayTasks.Filter = item =>
+            item is CalendarTask task && task.Date.Date <= _selectedEndDate && task.LastDate >= _selectedDate;
         _selectedDayTasks.CustomSort = Comparer<object>.Create((a, b) => CompareTasks((CalendarTask)a, (CalendarTask)b));
         TaskList.ItemsSource = _selectedDayTasks;
 
@@ -190,11 +205,13 @@ public partial class CalendarView : UserControl
     private int CompareTasks(CalendarTask a, CalendarTask b)
     {
         var byCompletion = a.IsCompleted.CompareTo(b.IsCompleted);
-        return byCompletion != 0 ? byCompletion : _tasks.IndexOf(a).CompareTo(_tasks.IndexOf(b));
+        if (byCompletion != 0) return byCompletion;
+        var byStart = a.Date.Date.CompareTo(b.Date.Date);
+        return byStart != 0 ? byStart : _tasks.IndexOf(a).CompareTo(_tasks.IndexOf(b));
     }
 
     private IEnumerable<CalendarTask> TasksOn(DateTime date) =>
-        _tasks.Where(t => t.Date.Date == date).OrderBy(t => t.IsCompleted).ThenBy(_tasks.IndexOf);
+        _tasks.Where(t => t.Covers(date)).OrderBy(t => t.IsCompleted).ThenBy(_tasks.IndexOf);
 
     private void AddTracked(CalendarTask task)
     {
@@ -222,9 +239,9 @@ public partial class CalendarView : UserControl
         if (DateTime.Today == _renderedToday) return;
 
         // 어제(이전의 오늘)를 보고 있었다면 새 오늘로 따라간다.
-        if (_selectedDate == _renderedToday)
+        if (_selectedDate == _renderedToday && _selectedEndDate == _renderedToday)
         {
-            _selectedDate = DateTime.Today;
+            _selectedDate = _selectedEndDate = _selectionAnchor = DateTime.Today;
             _displayMonth = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
         }
         _renderedToday = DateTime.Today;
@@ -248,9 +265,46 @@ public partial class CalendarView : UserControl
 
         // 앞뒤 빈칸에는 지난달 끝 날짜와 다음 달 첫 날짜를 흐리게 채운다.
         var gridStart = _displayMonth.AddDays(-firstCell);
+        var gridEnd = gridStart.AddDays(DayGrid.Rows * 7 - 1);
+        if (DayGrid.ActualWidth > 0) _cellWidth = DayGrid.ActualWidth / 7;
+        AssignLanes(gridStart, gridEnd);
+
         for (var cell = 0; cell < DayGrid.Rows * 7; cell++)
         {
-            DayGrid.Children.Add(CreateGridCell(CreateDayButton(gridStart.AddDays(cell))));
+            var gridCell = CreateGridCell(CreateDayButton(gridStart.AddDays(cell)));
+
+            // 막대 제목이 오른쪽 칸까지 펼쳐지므로 왼쪽 칸을 위에 그린다.
+            Panel.SetZIndex(gridCell, 6 - cell % 7);
+            DayGrid.Children.Add(gridCell);
+        }
+    }
+
+    /// <summary>
+    /// 보이는 기간과 겹치는 여러 날 일정에, 서로 겹치지 않는 가장 위쪽 줄 번호를 매깁니다.
+    /// 먼저 시작하고 긴 일정부터 위쪽 줄을 차지합니다.
+    /// </summary>
+    private void AssignLanes(DateTime gridStart, DateTime gridEnd)
+    {
+        _lanes = [];
+        var laneEnds = new List<DateTime>();
+        var visible = _tasks
+            .Where(t => t.IsMultiDay && t.LastDate >= gridStart && t.Date.Date <= gridEnd)
+            .OrderBy(t => t.Date.Date)
+            .ThenByDescending(t => t.LastDate)
+            .ThenBy(_tasks.IndexOf);
+        foreach (var task in visible)
+        {
+            var lane = laneEnds.FindIndex(end => end < task.Date.Date);
+            if (lane < 0)
+            {
+                lane = laneEnds.Count;
+                laneEnds.Add(task.LastDate);
+            }
+            else
+            {
+                laneEnds[lane] = task.LastDate;
+            }
+            _lanes[task] = lane;
         }
     }
 
@@ -296,52 +350,83 @@ public partial class CalendarView : UserControl
         });
         content.Children.Add(header);
 
-        var chips = new StackPanel();
-        Grid.SetRow(chips, 1);
-
-        // 공휴일 이름은 숫자 옆에 두면 잘리므로 숫자 아래 첫 줄에 쓴다.
+        // 여러 날 일정은 정해진 줄에, 하루 일정은 남은 빈 줄에 넣는다.
+        // 공휴일 이름과 "+N"은 숫자 옆 머리 줄에 써서, 아래 줄은 모두 일정에 쓰고 막대 줄이 어긋나지 않게 한다.
         var slots = _chipsPerDay;
+        var rows = new FrameworkElement?[slots];
+        var hidden = 0;
+        foreach (var task in tasks.Where(t => t.IsMultiDay))
+        {
+            var lane = _lanes.GetValueOrDefault(task, int.MaxValue);
+            if (lane < slots) rows[lane] = CreateRangeSegment(task, date);
+            else hidden++;
+        }
+        foreach (var task in tasks.Where(t => !t.IsMultiDay))
+        {
+            var free = Array.IndexOf(rows, null);
+            if (free >= 0) rows[free] = CreateChip(task);
+            else hidden++;
+        }
+        if (hidden > 0)
+        {
+            var more = new TextBlock
+            {
+                Text = $"+{hidden}",
+                FontSize = 10,
+                Foreground = SubInkBrush,
+                Margin = new Thickness(3, 0, 0, 0),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            DockPanel.SetDock(more, Dock.Right);
+            header.Children.Add(more);
+        }
         if (holiday is not null)
         {
-            chips.Children.Add(new TextBlock
+            header.Children.Add(new TextBlock
             {
                 Text = holiday,
-                FontSize = 10,
+                FontSize = 9.5,
                 Foreground = RedBrush,
-                Height = ChipHeight,
-                Margin = new Thickness(2, 0, 0, 0),
+                Margin = new Thickness(3, 1, 0, 0),
+                VerticalAlignment = VerticalAlignment.Center,
                 TextTrimming = TextTrimming.CharacterEllipsis
             });
-            slots = Math.Max(1, slots - 1);
         }
 
-        // 칸 높이에 들어가는 만큼만 일정 제목을 보여 주고 나머지는 "+N"으로 줄인다.
-        var visibleCount = tasks.Count <= slots ? tasks.Count : Math.Max(0, slots - 1);
-        foreach (var task in tasks.Take(visibleCount)) chips.Children.Add(CreateChip(task));
-        if (tasks.Count > visibleCount)
-        {
-            chips.Children.Add(new TextBlock
-            {
-                Text = $"+{tasks.Count - visibleCount}개 더",
-                FontSize = 10,
-                Foreground = DoneTextBrush,
-                Margin = new Thickness(3, 1, 0, 0)
-            });
-        }
+        // 빈 줄도 자리를 지켜야 아래쪽 막대가 다른 날과 같은 높이에 그려진다.
+        var chips = new UnclippedStackPanel();
+        Grid.SetRow(chips, 1);
+        var lastUsed = Array.FindLastIndex(rows, row => row is not null);
+        for (var i = 0; i <= lastUsed; i++) chips.Children.Add(rows[i] ?? new Border { Height = ChipHeight });
         content.Children.Add(chips);
+
+        // 하루만 고른 날짜에는 테두리를 두른다. 버튼 자체에 테두리를 주면 WPF가 안쪽 내용을 테두리 안으로 잘라
+        // 여러 날 일정 막대가 옆 칸으로 이어지지 못하므로, 테두리만 따로 위에 얹는다.
+        if (IsSingleSelection && date == _selectedDate)
+        {
+            var outline = new Border
+            {
+                BorderBrush = SelectedEdgeBrush,
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(4),
+                Margin = new Thickness(-content.Margin.Left, -content.Margin.Top, -content.Margin.Right, -content.Margin.Bottom),
+                IsHitTestVisible = false
+            };
+            Grid.SetRowSpan(outline, 2);
+            content.Children.Add(outline);
+        }
 
         var tooltipLines = new List<string>();
         if (holiday is not null) tooltipLines.Add(holiday);
-        tooltipLines.AddRange(tasks.Select(t => (t.IsCompleted ? "✓ " : "• ") + t.Title));
+        tooltipLines.AddRange(tasks.Select(t =>
+            (t.IsCompleted ? "✓ " : "• ") + t.Title + (t.IsMultiDay ? $" ({t.RangeLabel})" : string.Empty)));
 
         return new Button
         {
             Content = content,
             Style = (Style)FindResource("DayButtonStyle"),
             Tag = date,
-            Background = date == _selectedDate ? SelectedBrush : Brushes.Transparent,
-            BorderBrush = date == _selectedDate ? SelectedEdgeBrush : null,
-            BorderThickness = new Thickness(date == _selectedDate ? 1 : 0),
+            Background = IsSelected(date) ? SelectedBrush : Brushes.Transparent,
             ToolTip = tooltipLines.Count > 0 ? string.Join(Environment.NewLine, tooltipLines) : null
         };
     }
@@ -353,6 +438,59 @@ public partial class CalendarView : UserControl
         BorderThickness = new Thickness(0, 0, 1, 1),
         Child = child
     };
+
+    /// <summary>
+    /// 자기 영역 밖으로 그리는 것을 자르지 않는 StackPanel. 여러 날 일정 막대가 칸 끝까지 뻗어
+    /// 옆 칸과 이어 보이려면 필요하다. (StackPanel은 기본으로 영역 밖을 잘라 낸다)
+    /// </summary>
+    private sealed class UnclippedStackPanel : StackPanel
+    {
+        protected override Geometry? GetLayoutClip(Size layoutSlotSize) => null;
+    }
+
+    private bool IsSingleSelection => _selectedEndDate == _selectedDate;
+
+    private bool IsSelected(DateTime date) => date >= _selectedDate && date <= _selectedEndDate;
+
+    /// <summary>
+    /// 여러 날 일정 막대 중 하루치 조각을 만듭니다. 같은 주 안에서 앞뒤 날짜로 이어지는 쪽은
+    /// 모서리를 펴고 칸 끝까지 늘려 막대가 끊기지 않게 보이게 합니다.
+    /// </summary>
+    private FrameworkElement CreateRangeSegment(CalendarTask task, DateTime date)
+    {
+        var fromLeft = date > task.Date.Date && date.DayOfWeek != DayOfWeek.Sunday;
+        var toRight = date < task.LastDate && date.DayOfWeek != DayOfWeek.Saturday;
+        var bar = new Border
+        {
+            Background = task.IsCompleted ? DoneRangeBrush : RangeBrush,
+            Height = ChipHeight - 1,
+            // 칸 안쪽 여백(5)과 버튼 여백(2), 오른쪽 격자선(1)까지 덮는다.
+            Margin = new Thickness(fromLeft ? -7 : 0, 1, toRight ? -8 : 0, 0),
+            CornerRadius = new CornerRadius(fromLeft ? 0 : 4, toRight ? 0 : 4, toRight ? 0 : 4, fromLeft ? 0 : 4)
+        };
+
+        // 제목은 막대가 시작하는 날(또는 주가 바뀐 첫날)에만 쓰고, 이번 주 안에서 막대가 이어지는 길이만큼 펼친다.
+        if (!fromLeft)
+        {
+            var weekEnd = date.AddDays(6 - (int)date.DayOfWeek);
+            var spanDays = ((task.LastDate < weekEnd ? task.LastDate : weekEnd) - date).Days + 1;
+            var title = new TextBlock
+            {
+                Text = task.Title,
+                FontSize = 10.5,
+                Foreground = task.IsCompleted ? DoneTextBrush : RangeTextBrush,
+                TextDecorations = task.IsCompleted ? TextDecorations.Strikethrough : null,
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                Width = Math.Max(12, spanDays * _cellWidth - 18)
+            };
+            Canvas.SetLeft(title, 4);
+            Canvas.SetTop(title, 0.5);
+
+            // Canvas는 크기를 차지하지 않아 제목이 칸 밖(오른쪽 칸들)까지 그려질 수 있다.
+            bar.Child = new Canvas { Children = { title } };
+        }
+        return bar;
+    }
 
     private static Border CreateChip(CalendarTask task) => new()
     {
@@ -380,16 +518,42 @@ public partial class CalendarView : UserControl
 
     private void RenderSelectedDate()
     {
-        SelectedDateText.Text = _selectedDate.ToString("M월 d일 (ddd)", Korean);
-        SelectedHolidayText.Text = KoreanHolidays.GetName(_selectedDate) ?? string.Empty;
+        if (IsSingleSelection)
+        {
+            SelectedDateText.Text = _selectedDate.ToString("M월 d일 (ddd)", Korean);
+            SelectedHolidayText.Text = KoreanHolidays.GetName(_selectedDate) ?? string.Empty;
+            SelectedHolidayText.Foreground = RedBrush;
+            InputHint.Text = "✎  할 일을 적고 Enter";
+        }
+        else
+        {
+            SelectedDateText.Text =
+                $"{_selectedDate.ToString("M월 d일 (ddd)", Korean)} ~ {_selectedEndDate.ToString("M월 d일 (ddd)", Korean)}";
+            SelectedHolidayText.Text = $"{(_selectedEndDate - _selectedDate).Days + 1}일";
+            SelectedHolidayText.Foreground = SubInkBrush;
+            InputHint.Text = $"✎  {_selectedDate:M'/'d}~{_selectedEndDate:M'/'d} 일정을 적고 Enter";
+        }
         _selectedDayTasks.Refresh();
         EmptyListText.Visibility = _selectedDayTasks.IsEmpty ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void SelectDate(DateTime date)
     {
-        _selectedDate = date.Date;
+        _selectedDate = _selectedEndDate = _selectionAnchor = date.Date;
         _displayMonth = new DateTime(date.Year, date.Month, 1);
+        RenderCalendar();
+        RenderSelectedDate();
+    }
+
+    /// <summary>두 날짜 사이를 기간으로 고릅니다. 순서는 상관없습니다. 보고 있는 달은 바꾸지 않습니다.</summary>
+    private void SelectRange(DateTime from, DateTime to)
+    {
+        var start = from < to ? from : to;
+        var end = from < to ? to : from;
+        if (start == _selectedDate && end == _selectedEndDate) return;
+
+        _selectedDate = start;
+        _selectedEndDate = end;
         RenderCalendar();
         RenderSelectedDate();
     }
@@ -403,18 +567,51 @@ public partial class CalendarView : UserControl
     private void DayGrid_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         if (FindDayButton(e.OriginalSource as DependencyObject) is not { Tag: DateTime date }) return;
+        e.Handled = true;
 
-        SelectDate(date);
         if (e.ClickCount == 2)
         {
-            // 더블클릭하면 그 날짜에 바로 입력할 수 있게 입력칸으로 옮겨 간다.
+            // 더블클릭하면 첫 클릭으로 고른 날짜에 바로 입력할 수 있게 입력칸으로 옮겨 간다.
             Dispatcher.BeginInvoke(() =>
             {
                 TaskInput.Focus();
                 Keyboard.Focus(TaskInput);
             }, DispatcherPriority.Input);
+            return;
         }
-        e.Handled = true;
+
+        if (Keyboard.Modifiers.HasFlag(ModifierKeys.Shift))
+        {
+            // Shift+클릭: 먼저 고른 날짜부터 누른 날짜까지를 기간으로 고른다.
+            SelectRange(_selectionAnchor, date);
+            return;
+        }
+
+        // 누른 채로 끌면 기간을 고른다. 놓을 때까지 마우스를 붙잡아 칸 밖으로 나가도 따라간다.
+        _selectionAnchor = date;
+        _isDraggingSelection = true;
+        SelectRange(date, date);
+        DayGrid.CaptureMouse();
+    }
+
+    private void DayGrid_MouseMove(object sender, MouseEventArgs e)
+    {
+        if (!_isDraggingSelection) return;
+
+        var hit = DayGrid.InputHitTest(e.GetPosition(DayGrid)) as DependencyObject;
+        if (FindDayButton(hit) is { Tag: DateTime date }) SelectRange(_selectionAnchor, date);
+    }
+
+    private void DayGrid_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (!_isDraggingSelection) return;
+
+        _isDraggingSelection = false;
+        DayGrid.ReleaseMouseCapture();
+
+        // 끌지 않고 흐린 앞뒤 달 날짜를 눌렀으면 그 달로 넘어간다.
+        if (IsSingleSelection && (_selectedDate.Year != _displayMonth.Year || _selectedDate.Month != _displayMonth.Month))
+            SelectDate(_selectedDate);
     }
 
     private Button? FindDayButton(DependencyObject? element)
@@ -429,7 +626,9 @@ public partial class CalendarView : UserControl
 
     private void DayGrid_SizeChanged(object sender, SizeChangedEventArgs e)
     {
-        if (UpdateChipsPerDay()) RenderCalendar();
+        // 칸 너비가 바뀌면 막대 제목을 펼칠 길이도 바뀌므로 다시 그린다.
+        var widthChanged = Math.Abs(e.NewSize.Width - e.PreviousSize.Width) > 0.5;
+        if (UpdateChipsPerDay() | widthChanged) RenderCalendar();
     }
 
     /// <summary>칸 높이에 맞춰 날짜 칸 하나에 보여 줄 일정 줄 수를 정합니다. 바뀌었으면 true입니다.</summary>
@@ -467,7 +666,12 @@ public partial class CalendarView : UserControl
         var title = TaskInput.Text.Trim();
         if (string.IsNullOrWhiteSpace(title)) return;
 
-        AddTracked(new CalendarTask { Date = _selectedDate, Title = title });
+        AddTracked(new CalendarTask
+        {
+            Date = _selectedDate,
+            EndDate = IsSingleSelection ? null : _selectedEndDate,
+            Title = title
+        });
         TaskInput.Clear();
         SaveAndRefresh();
     }

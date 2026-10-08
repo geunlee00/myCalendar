@@ -89,6 +89,9 @@
             <DockPanel>
                 <Button DockPanel.Dock="Right" Content="×" Width="24" Height="24" FontSize="14" Style="{StaticResource FlatButtonStyle}" Click="DeleteTask_Click" Tag="{Binding}" ToolTip="삭제" />
                 <CheckBox VerticalAlignment="Center" Margin="0,0,8,0" Focusable="False" IsChecked="{Binding IsCompleted}" />
+                <Border x:Name="RangeTag" Background="#D9E4EF" CornerRadius="3" Padding="4,0" Margin="0,0,6,0" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding RangeLabel}" FontSize="10.5" Foreground="#2E4A6B" />
+                </Border>
                 <Grid VerticalAlignment="Center">
                     <TextBlock x:Name="TitleText" Text="{Binding Title}" Foreground="{StaticResource InkBrush}" TextTrimming="CharacterEllipsis" Background="Transparent" MouseLeftButtonDown="TaskTitle_MouseLeftButtonDown" ToolTip="더블클릭해서 이름 고치기" />
                     <TextBox x:Name="TitleEditor" Visibility="Collapsed" Text="{Binding Title, Mode=OneWay}" Padding="2,1" BorderBrush="#C9B998" KeyDown="TitleEditor_KeyDown" LostKeyboardFocus="TitleEditor_LostKeyboardFocus" IsVisibleChanged="TitleEditor_IsVisibleChanged" />
@@ -98,6 +101,9 @@
                 <DataTrigger Binding="{Binding IsCompleted}" Value="True">
                     <Setter TargetName="TitleText" Property="TextDecorations" Value="Strikethrough" />
                     <Setter TargetName="TitleText" Property="Foreground" Value="#A8A090" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding RangeLabel}" Value="{x:Null}">
+                    <Setter TargetName="RangeTag" Property="Visibility" Value="Collapsed" />
                 </DataTrigger>
                 <DataTrigger Binding="{Binding IsEditing}" Value="True">
                     <Setter TargetName="TitleText" Property="Visibility" Value="Collapsed" />
@@ -130,7 +136,7 @@
                         <RowDefinition Height="60" />
                         <RowDefinition Height="30" />
                         <RowDefinition Height="*" />
-                        <RowDefinition Height="190" />
+                        <RowDefinition Height="160" />
                     </Grid.RowDefinitions>
 
                     <!-- 머리: 큰 월 숫자. 끌어서 옮기고 휠로 달을 넘긴다. -->
@@ -191,6 +197,8 @@
                         <UniformGrid x:Name="DayGrid" Columns="7" Background="Transparent"
                                      MouseWheel="Calendar_MouseWheel"
                                      PreviewMouseLeftButtonDown="DayGrid_PreviewMouseLeftButtonDown"
+                                     PreviewMouseLeftButtonUp="DayGrid_PreviewMouseLeftButtonUp"
+                                     MouseMove="DayGrid_MouseMove"
                                      SizeChanged="DayGrid_SizeChanged" />
                     </Border>
 
@@ -220,7 +228,7 @@
                                 <ColumnDefinition Width="64" />
                             </Grid.ColumnDefinitions>
                             <TextBox x:Name="TaskInput" Grid.Column="0" Height="30" Padding="4,5" BorderThickness="0,0,0,1.5" Background="Transparent" Foreground="{StaticResource InkBrush}" VerticalContentAlignment="Center" KeyDown="TaskInput_KeyDown" />
-                            <TextBlock Grid.Column="0" Text="✎  할 일을 적고 Enter" Margin="7,0,0,0" VerticalAlignment="Center" Foreground="#B0A796" IsHitTestVisible="False">
+                            <TextBlock x:Name="InputHint" Grid.Column="0" Text="✎  할 일을 적고 Enter" Margin="7,0,0,0" VerticalAlignment="Center" Foreground="#B0A796" IsHitTestVisible="False">
                                 <TextBlock.Style>
                                     <Style TargetType="TextBlock">
                                         <Setter Property="Visibility" Value="Collapsed" />

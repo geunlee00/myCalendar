@@ -11,7 +11,25 @@ public sealed class CalendarTask : INotifyPropertyChanged
     private bool _isEditing;
 
     public Guid Id { get; init; } = Guid.NewGuid();
+
+    /// <summary>일정 날짜. 여러 날 일정이면 시작 날짜입니다.</summary>
     public DateTime Date { get; init; }
+
+    /// <summary>여러 날 일정의 끝 날짜. 하루 일정이면 비어 있습니다.</summary>
+    public DateTime? EndDate { get; init; }
+
+    /// <summary>일정의 마지막 날. 하루 일정이면 시작 날짜와 같습니다.</summary>
+    [JsonIgnore]
+    public DateTime LastDate => EndDate is { } end && end.Date > Date.Date ? end.Date : Date.Date;
+
+    [JsonIgnore]
+    public bool IsMultiDay => LastDate > Date.Date;
+
+    /// <summary>목록에 함께 보여 줄 기간(예: 10/8~10/10). 하루 일정이면 비어 있습니다.</summary>
+    [JsonIgnore]
+    public string? RangeLabel => IsMultiDay ? $"{Date:M'/'d}~{LastDate:M'/'d}" : null;
+
+    public bool Covers(DateTime date) => date >= Date.Date && date <= LastDate;
 
     public string Title
     {
