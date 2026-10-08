@@ -25,6 +25,7 @@ It never covers other windows, and it stays visible even when you press `Win + D
 ## Download and run
 
 > Requirements: **Windows 10 / 11 (64-bit)** — nothing else to install.
+> **macOS and Linux are not supported.** (It relies on the Windows desktop and is Windows-only.)
 
 1. **[Download CalendarWidget.exe](https://github.com/geunlee00/myCalendar/releases/latest/download/CalendarWidget.exe)**
    (or get the latest `CalendarWidget.exe` from **Releases**)
@@ -117,6 +118,9 @@ Your events and settings are stored separately, so nothing is lost.
 
 **I can't see the calendar.**
 It sits on the desktop, behind your windows. Press `Win + D` or minimize your windows.
+
+**Does it work on Mac or Linux?**
+No. Both the way it embeds into the desktop and its UI framework (WPF) are Windows-only, so it runs on Windows 10 / 11 only.
 
 **Nothing happens when I run it a second time.**
 Only one calendar runs at a time; the second launch exits immediately.

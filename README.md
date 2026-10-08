@@ -27,6 +27,7 @@
 ## 내려받기와 실행
 
 > 필요한 것: **Windows 10 / 11 (64비트)** — 따로 설치할 프로그램은 없습니다.
+> **macOS와 Linux는 지원하지 않습니다.** (Windows 바탕화면 구조를 이용하는 Windows 전용 프로그램입니다)
 
 1. **[CalendarWidget.exe 내려받기](https://github.com/geunlee00/myCalendar/releases/latest/download/CalendarWidget.exe)**
    (또는 오른쪽의 **Releases**에서 최신 버전의 `CalendarWidget.exe`)
@@ -131,6 +132,9 @@
 **달력이 안 보여요.**
 달력은 바탕화면에 붙어 있어서 다른 창 뒤에 있습니다. `Win + D`를 누르거나 창들을 내려 보세요.
 그래도 없으면 작업 관리자에서 `CalendarWidget`을 끝낸 뒤 다시 실행해 보세요.
+
+**Mac이나 Linux에서도 쓸 수 있나요?**
+아니요. Windows 바탕화면에 붙는 방식과 화면 도구(WPF)가 Windows 전용이라 Windows 10 / 11에서만 실행됩니다.
 
 **두 번 실행했는데 아무 일도 없어요.**
 이미 켜져 있으면 두 번째 실행은 바로 끝납니다. 달력은 하나만 뜹니다.
