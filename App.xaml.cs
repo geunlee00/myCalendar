@@ -8,6 +8,8 @@ public partial class App : Application
 {
     private static readonly Size DefaultWidgetSize = new(540, 740);
     private static readonly Size MinWidgetSize = new(380, 540);
+    private static readonly Size MiniWidgetSize = new(300, 400);
+    private static readonly Size MiniMinSize = new(240, 300);
 
     private readonly DispatcherTimer _attachTimer = new() { Interval = TimeSpan.FromSeconds(2) };
     private readonly SettingsStore _settingsStore = new();
@@ -38,9 +40,11 @@ public partial class App : Application
             _settingsStore.Save(_settings);
         }
 
+        // 미니 모드와 큰 달력은 위치·크기를 따로 기억한다.
         DesktopWidgetHost.BoundsChanged += bounds =>
         {
-            _settings.Bounds = bounds;
+            if (_settings.IsMiniMode) _settings.MiniBounds = bounds;
+            else _settings.Bounds = bounds;
             _settingsStore.Save(_settings);
         };
 
@@ -56,7 +60,29 @@ public partial class App : Application
             _settings.ShowKoreanHolidays = show;
             _settingsStore.Save(_settings);
         };
+        _view.ShowLunar = _settings.ShowLunar ?? Loc.Current == AppLanguage.Korean;
+        _view.ShowLunarChanged += show =>
+        {
+            _settings.ShowLunar = show;
+            _settingsStore.Save(_settings);
+        };
+        _view.ThemeKey = _settings.Theme ?? PaperTheme.Ivory.Key;
+        _view.ThemeChanged += theme =>
+        {
+            _settings.Theme = theme;
+            _settingsStore.Save(_settings);
+        };
         _view.PageFlipEnabled = _settings.PageFlipAnimation ?? true;
+        _view.IsMiniMode = _settings.IsMiniMode;
+        _view.MiniModeChanged += mini =>
+        {
+            _settings.IsMiniMode = mini;
+            _settingsStore.Save(_settings);
+            DesktopWidgetHost.ChangeMode(
+                mini ? _settings.MiniBounds : _settings.Bounds,
+                mini ? MiniWidgetSize : DefaultWidgetSize,
+                mini ? MiniMinSize : MinWidgetSize);
+        };
         _view.PageFlipEnabledChanged += enabled =>
         {
             _settings.PageFlipAnimation = enabled;
@@ -90,7 +116,12 @@ public partial class App : Application
         }
 
         _attachTimer.Stop();
-        var source = DesktopWidgetHost.Show(_view!, DefaultWidgetSize, MinWidgetSize, _settings.Bounds);
+        var mini = _settings.IsMiniMode;
+        var source = DesktopWidgetHost.Show(
+            _view!,
+            mini ? MiniWidgetSize : DefaultWidgetSize,
+            mini ? MiniMinSize : MinWidgetSize,
+            mini ? _settings.MiniBounds : _settings.Bounds);
         source.Disposed += (_, _) =>
         {
             if (!_exiting) _attachTimer.Start();

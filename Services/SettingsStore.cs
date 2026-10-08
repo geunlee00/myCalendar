@@ -9,11 +9,23 @@ public sealed class AppSettings
 {
     public WidgetBounds? Bounds { get; set; }
 
+    /// <summary>미니 모드일 때의 위치와 크기. 처음 미니 모드로 바꾸기 전에는 비어 있습니다.</summary>
+    public WidgetBounds? MiniBounds { get; set; }
+
+    /// <summary>마지막으로 미니 모드였는지. 다음에 켤 때 같은 모드로 시작합니다.</summary>
+    public bool IsMiniMode { get; set; }
+
     /// <summary>화면 언어(ko, en). 비어 있으면 Windows 표시 언어를 따릅니다.</summary>
     public string? Language { get; set; }
 
     /// <summary>대한민국 공휴일 표시. 비어 있으면 처음 언어를 따릅니다(한국어면 켜고, 아니면 끕니다).</summary>
     public bool? ShowKoreanHolidays { get; set; }
+
+    /// <summary>음력 날짜 표시. 비어 있으면 처음 언어를 따릅니다(한국어면 켜고, 아니면 끕니다).</summary>
+    public bool? ShowLunar { get; set; }
+
+    /// <summary>종이 색 테마 이름(ivory, kraft, dark, sky, blossom). 비어 있으면 미색입니다.</summary>
+    public string? Theme { get; set; }
 
     /// <summary>달을 바꿀 때 종이 넘기기 효과를 보여 줄지. 비어 있으면 켭니다.</summary>
     public bool? PageFlipAnimation { get; set; }

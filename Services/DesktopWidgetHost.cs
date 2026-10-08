@@ -132,6 +132,36 @@ internal static class DesktopWidgetHost
 
     public static void EndResize() => RaiseBoundsChanged();
 
+    /// <summary>
+    /// 미니 모드와 큰 달력을 오갈 때 창 크기를 바꿉니다. 그 모드에서 쓰던 위치·크기가 있으면 그대로 쓰고,
+    /// 처음이면 지금 위젯이 붙어 있는 화면 모서리 쪽에 그 모드의 기본 크기로 붙입니다.
+    /// </summary>
+    public static void ChangeMode(WidgetBounds? savedBounds, Size defaultSize, Size minSize)
+    {
+        if (_source is null) return;
+
+        _defaultSize = defaultSize;
+        _minSize = minSize;
+        if (savedBounds is not null)
+        {
+            Place(savedBounds, 0);
+            RaiseBoundsChanged();
+            return;
+        }
+
+        var scale = Scale;
+        GetWindowRect(_source.Handle, out var rect);
+        var workArea = GetWorkAreaNear(rect);
+        var width = (int)Math.Round(defaultSize.Width * scale);
+        var height = (int)Math.Round(defaultSize.Height * scale);
+        var anchorRight = workArea.Right - rect.Right < rect.Left - workArea.Left;
+        var anchorBottom = workArea.Bottom - rect.Bottom < rect.Top - workArea.Top;
+        var left = anchorRight ? rect.Right - width : rect.Left;
+        var top = anchorBottom ? rect.Bottom - height : rect.Top;
+        SetScreenBounds(FitIntoWorkArea(new Rect32 { Left = left, Top = top, Right = left + width, Bottom = top + height }), 0);
+        RaiseBoundsChanged();
+    }
+
     /// <summary>주 모니터 오른쪽 아래의 처음 위치와 크기로 되돌립니다.</summary>
     public static void ResetBounds()
     {

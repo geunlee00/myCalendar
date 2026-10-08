@@ -22,20 +22,6 @@ public partial class CalendarView : UserControl
     private static readonly CultureInfo English = CultureInfo.GetCultureInfo("en-US");
     private static readonly FontFamily PrintedFont = new("Georgia");
 
-    // 탁상 달력 색: 미색 종이, 남색 글자, 빨간 강조
-    private static readonly Color PaperColor = Color.FromRgb(0xFF, 0xFC, 0xF5);
-    private static readonly Color PaperEdgeColor = Color.FromRgb(0xE6, 0xDE, 0xCD);
-    private static readonly Color InkColor = Color.FromRgb(0x2E, 0x34, 0x40);
-    private static readonly Brush InkBrush = Freeze(new SolidColorBrush(InkColor));
-    private static readonly Brush RedBrush = Freeze(new SolidColorBrush(Color.FromRgb(0xC8, 0x48, 0x3D)));
-    private static readonly Brush BlueBrush = Freeze(new SolidColorBrush(Color.FromRgb(0x3F, 0x6F, 0xB5)));
-    private static readonly Brush SelectedBrush = Freeze(new SolidColorBrush(Color.FromRgb(0xF1, 0xE8, 0xD6)));
-    private static readonly Brush SelectedEdgeBrush = Freeze(new SolidColorBrush(Color.FromRgb(0xC9, 0xB9, 0x98)));
-    private static readonly Brush MovePreviewBrush = Freeze(new SolidColorBrush(Color.FromRgb(0xE1, 0xEA, 0xF5)));
-    private static readonly Brush DoneChipBrush = Freeze(new SolidColorBrush(Color.FromRgb(0xF4, 0xF0, 0xE8)));
-    private static readonly Brush DoneTextBrush = Freeze(new SolidColorBrush(Color.FromRgb(0xA8, 0xA0, 0x90)));
-    private static readonly Brush GridLineBrush = Freeze(new SolidColorBrush(Color.FromRgb(0xE6, 0xDD, 0xCB)));
-    private static readonly Brush SubInkBrush = Freeze(new SolidColorBrush(Color.FromRgb(0x8A, 0x81, 0x72)));
     private static readonly Brush HoleBrush = Freeze(new SolidColorBrush(Color.FromArgb(0x99, 0x3A, 0x34, 0x2C)));
     private static readonly Brush WireEdgeBrush = Freeze(new SolidColorBrush(Color.FromRgb(0x6E, 0x74, 0x7C)));
     private static readonly Brush WireBrush = Freeze(new LinearGradientBrush(
@@ -45,6 +31,19 @@ public partial class CalendarView : UserControl
             new GradientStop(Color.FromRgb(0x6E, 0x74, 0x7C), 1)
         ],
         0));
+
+    // 종이 색 테마에서 꺼내 쓰는 색. 테마를 바꾸면 다음 그리기부터 새 색이 쓰인다.
+    private PaperTheme _theme = PaperTheme.Ivory;
+    private Brush InkBrush => PaperTheme.Solid(_theme.Ink);
+    private Brush RedBrush => PaperTheme.Solid(_theme.Accent);
+    private Brush BlueBrush => PaperTheme.Solid(_theme.Saturday);
+    private Brush SubInkBrush => PaperTheme.Solid(_theme.SubInk);
+    private Brush SelectedBrush => PaperTheme.Solid(_theme.Selected);
+    private Brush SelectedEdgeBrush => PaperTheme.Solid(_theme.SelectedEdge);
+    private Brush MovePreviewBrush => PaperTheme.Solid(_theme.MovePreview);
+    private Brush DoneChipBrush => PaperTheme.Solid(_theme.DoneChip);
+    private Brush DoneTextBrush => PaperTheme.Solid(_theme.DoneText);
+    private Brush GridLineBrush => PaperTheme.Solid(_theme.GridLine);
 
     // 날짜 칸 안의 일정 한 줄 높이와, 날짜 숫자 줄이 차지하는 높이(WPF 단위).
     private const double ChipHeight = 16;
@@ -70,6 +69,10 @@ public partial class CalendarView : UserControl
     private readonly TaskStore _taskStore = new();
     private readonly ObservableCollection<CalendarTask> _tasks = [];
     private readonly ListCollectionView _selectedDayTasks;
+
+    // 미니 모드의 오늘 할 일 목록과, 지금 미니 모드인지 여부
+    private readonly ListCollectionView _todayTasks;
+    private bool _isMiniMode;
     private readonly DispatcherTimer _dayChangeTimer = new() { Interval = TimeSpan.FromMinutes(1) };
 
     // 켠 뒤 잠시 기다렸다가 한 번, 그 뒤로는 하루에 한 번 새 버전을 확인한다.
@@ -107,6 +110,7 @@ public partial class CalendarView : UserControl
     private int _chipsPerDay = 2;
     private double _backgroundTransparency;
     private bool _showHolidays = true;
+    private bool _showLunar = true;
     private bool _pageFlipEnabled = true;
 
     /// <summary>배경 투명도(0 = 불투명, 1 = 투명)를 사용자가 바꾸면 알려 줍니다.</summary>
@@ -117,6 +121,57 @@ public partial class CalendarView : UserControl
 
     /// <summary>사용자가 메뉴에서 공휴일 표시를 켜거나 끄면 알려 줍니다.</summary>
     public event Action<bool>? ShowHolidaysChanged;
+
+    /// <summary>사용자가 미니 모드로 바꾸거나 원래 달력으로 돌아오면 알려 줍니다. 창 크기는 앱이 바꿉니다.</summary>
+    public event Action<bool>? MiniModeChanged;
+
+    /// <summary>
+    /// 미니 모드인지. 미니 모드에서는 오늘 날짜와 오늘 할 일만 작게 보여 줍니다.
+    /// 여기서 바꾸면 화면만 바꾸고 알리지 않습니다(앱이 시작할 때 저장된 값을 넣는 용도).
+    /// </summary>
+    public bool IsMiniMode
+    {
+        get => _isMiniMode;
+        set
+        {
+            _isMiniMode = value;
+            if (_isMiniMode) ShowMemoMode(MemoMode.List);
+            FlipLayer.Children.Clear();
+            ContentGrid.Visibility = _isMiniMode ? Visibility.Collapsed : Visibility.Visible;
+            MiniGrid.Visibility = _isMiniMode ? Visibility.Visible : Visibility.Collapsed;
+            RenderMini();
+        }
+    }
+
+    /// <summary>사용자가 메뉴에서 음력 표시를 켜거나 끄면 알려 줍니다.</summary>
+    public event Action<bool>? ShowLunarChanged;
+
+    /// <summary>날짜 칸과 메모장 머리에 음력 날짜를 보여 줄지.</summary>
+    public bool ShowLunar
+    {
+        get => _showLunar;
+        set
+        {
+            if (_showLunar == value) return;
+            _showLunar = value;
+            RenderCalendar();
+            RenderSelectedDate();
+        }
+    }
+
+    /// <summary>사용자가 메뉴에서 종이 색을 바꾸면 알려 줍니다. 값은 테마 이름(ivory, kraft …)입니다.</summary>
+    public event Action<string>? ThemeChanged;
+
+    /// <summary>종이 색 테마 이름(ivory, kraft, dark, sky, blossom).</summary>
+    public string ThemeKey
+    {
+        get => _theme.Key;
+        set
+        {
+            _theme = PaperTheme.FromKey(value);
+            ApplyTheme();
+        }
+    }
 
     /// <summary>사용자가 메뉴에서 종이 넘기기 효과를 켜거나 끄면 알려 줍니다.</summary>
     public event Action<bool>? PageFlipEnabledChanged;
@@ -157,8 +212,8 @@ public partial class CalendarView : UserControl
             // 완전히 투명한 픽셀은 클릭이 바탕화면으로 통과하므로, 눈에 안 보일 만큼은 배경을 남긴다.
             var backgroundAlpha = (byte)Math.Max(3, Math.Round(255 * opacity));
             var paperAlpha = (byte)Math.Round(255 * opacity);
-            Card.Background = new SolidColorBrush(Color.FromArgb(backgroundAlpha, PaperColor.R, PaperColor.G, PaperColor.B));
-            Card.BorderBrush = new SolidColorBrush(Color.FromArgb(paperAlpha, PaperEdgeColor.R, PaperEdgeColor.G, PaperEdgeColor.B));
+            Card.Background = new SolidColorBrush(Color.FromArgb(backgroundAlpha, _theme.Paper.R, _theme.Paper.G, _theme.Paper.B));
+            Card.BorderBrush = new SolidColorBrush(Color.FromArgb(paperAlpha, _theme.PaperEdge.R, _theme.PaperEdge.G, _theme.PaperEdge.B));
             CardShadow.Opacity = 0.22 * opacity;
 
             // 아래에 쌓인 종이와 스프링 고리, 메모장 줄도 종이와 함께 옅어진다.
@@ -166,22 +221,26 @@ public partial class CalendarView : UserControl
             PageLayer2.Opacity = opacity;
             RingsLayer.Opacity = opacity;
             MemoLines.Background = CreateMemoLinesBrush((byte)Math.Round(0x70 * opacity));
+            MiniMemoLines.Background = MemoLines.Background;
 
             // 입력칸 밑줄은 연하게라도 남겨 위치가 보이게 하고, 남색 버튼 글자는 배경이 절반 넘게 남아 있으면 흰색,
             // 그보다 옅으면 남색으로 바꿔 계속 읽히게 한다.
-            var underline = new SolidColorBrush(Color.FromArgb((byte)Math.Round(255 * Math.Max(0.45, opacity)), 0xC9, 0xB9, 0x98));
+            var underline = new SolidColorBrush(Color.FromArgb((byte)Math.Round(255 * Math.Max(0.45, opacity)), _theme.Line.R, _theme.Line.G, _theme.Line.B));
             TaskInput.BorderBrush = underline;
             EditorTitle.BorderBrush = underline;
             SearchInput.BorderBrush = underline;
-            foreach (var button in new[] { AddButton, EditorSave })
+            MiniTaskInput.BorderBrush = underline;
+            foreach (var button in new[] { AddButton, EditorSave, MiniAddButton })
             {
-                button.Background = new SolidColorBrush(Color.FromArgb(backgroundAlpha, InkColor.R, InkColor.G, InkColor.B));
-                button.Foreground = opacity >= 0.55 ? Brushes.White : InkBrush;
+                button.Background = new SolidColorBrush(Color.FromArgb(backgroundAlpha, _theme.ButtonBack.R, _theme.ButtonBack.G, _theme.ButtonBack.B));
+                button.Foreground = opacity >= 0.55 ? PaperTheme.Solid(_theme.ButtonText) : InkBrush;
             }
 
             // 효과를 켜면 글자가 살짝 흐려지므로 불투명할 때는 아예 끈다.
             TextGlow.Opacity = _backgroundTransparency;
             ContentGrid.Effect = _backgroundTransparency > 0 ? TextGlow : null;
+            MiniGlow.Opacity = _backgroundTransparency;
+            MiniGrid.Effect = _backgroundTransparency > 0 ? MiniGlow : null;
             TransparencyText.Text = Loc.T("Menu.Transparency", Math.Round(_backgroundTransparency * 100));
         }
     }
@@ -189,7 +248,7 @@ public partial class CalendarView : UserControl
     public CalendarView()
     {
         InitializeComponent();
-        BackgroundTransparency = 0;
+        ApplyTheme();
         foreach (var task in _taskStore.Load()) AddTracked(task);
 
         // 목록에는 고른 날짜(기간)에 걸친 일정만, 안 끝낸 일을 먼저 날짜·입력 순서대로 보여 준다.
@@ -198,6 +257,13 @@ public partial class CalendarView : UserControl
             item is CalendarTask task && task.OccurrencesBetween(_selectedDate, _selectedEndDate).Any();
         _selectedDayTasks.CustomSort = Comparer<object>.Create((a, b) => CompareTasks((CalendarTask)a, (CalendarTask)b));
         TaskList.ItemsSource = _selectedDayTasks;
+
+        _todayTasks = new ListCollectionView(_tasks)
+        {
+            Filter = item => item is CalendarTask task && task.OccurrencesBetween(DateTime.Today, DateTime.Today).Any(),
+            CustomSort = Comparer<object>.Create((a, b) => CompareTasks((CalendarTask)a, (CalendarTask)b))
+        };
+        MiniTaskList.ItemsSource = _todayTasks;
 
         ApplyLanguage();
         RenderCalendar();
@@ -237,7 +303,31 @@ public partial class CalendarView : UserControl
         AutoStartMenuItem.Header = Loc.T("Menu.AutoStart");
         ResetBoundsMenuItem.Header = Loc.T("Menu.ResetBounds");
         HolidaysMenuItem.Header = Loc.T("Menu.Holidays");
+        LunarMenuItem.Header = Loc.T("Menu.Lunar");
         PageFlipMenuItem.Header = Loc.T("Menu.PageFlip");
+        ThemeMenuItem.Header = Loc.T("Menu.Theme");
+        ThemeMenuItem.Items.Clear();
+        foreach (var theme in PaperTheme.All)
+        {
+            var item = new MenuItem
+            {
+                Header = Loc.T("Theme." + theme.Key),
+                IsCheckable = true,
+                IsChecked = theme == _theme,
+                Tag = theme.Key,
+                Icon = new Border
+                {
+                    Width = 14,
+                    Height = 14,
+                    CornerRadius = new CornerRadius(3),
+                    Background = PaperTheme.Solid(theme.Paper),
+                    BorderBrush = PaperTheme.Solid(theme.Ink),
+                    BorderThickness = new Thickness(1)
+                }
+            };
+            item.Click += ThemeItem_Click;
+            ThemeMenuItem.Items.Add(item);
+        }
         LanguageMenuItem.Header = Loc.T("Menu.Language");
         KoreanMenuItem.IsChecked = Loc.Current == AppLanguage.Korean;
         EnglishMenuItem.IsChecked = Loc.Current == AppLanguage.English;
@@ -272,6 +362,14 @@ public partial class CalendarView : UserControl
         EditorCancel.Content = Loc.T("Editor.Cancel");
         EditorSave.Content = Loc.T("Editor.Save");
         RenderEditorOptions();
+
+        MiniButton.ToolTip = Loc.T("Mini.ShrinkTip");
+        ExpandButton.ToolTip = Loc.T("Mini.ExpandTip");
+        MiniMenuButton.ToolTip = Loc.T("Header.MenuTip");
+        MiniCloseButton.ToolTip = Loc.T("Header.CloseTip");
+        MiniEmptyText.Text = Loc.T("Mini.Empty");
+        MiniInputHint.Text = Loc.T("Mini.Hint");
+        MiniAddButton.Content = Loc.T("Memo.Add");
 
         SearchHint.Text = Loc.T("Search.Hint");
         SearchEmptyText.Text = Loc.T("Search.Empty");
@@ -393,6 +491,51 @@ public partial class CalendarView : UserControl
         if (sender is Button { Tag: CalendarTask task }) OpenEditor(task);
     }
 
+    private void MiniAddButton_Click(object sender, RoutedEventArgs e) => AddTodayTask();
+
+    private void MiniTaskInput_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter) AddTodayTask();
+    }
+
+    /// <summary>미니 모드 입력칸의 할 일을 오늘 날짜로 추가합니다.</summary>
+    private void AddTodayTask()
+    {
+        var title = MiniTaskInput.Text.Trim();
+        if (string.IsNullOrWhiteSpace(title)) return;
+
+        AddTracked(new CalendarTask { Date = DateTime.Today, Title = title });
+        MiniTaskInput.Clear();
+        SaveAndRefresh();
+    }
+
+    /// <summary>미니 모드 화면(오늘 날짜, 공휴일·음력, 오늘 할 일)을 씁니다.</summary>
+    private void RenderMini()
+    {
+        if (_todayTasks is null) return;
+
+        var today = DateTime.Today;
+        MiniDayText.Text = today.Day.ToString();
+        MiniWeekdayText.Text = today.ToString("dddd", Loc.Culture);
+        MiniMonthText.Text = Loc.Date(today, "Fmt.Year");
+        MiniHolidayText.Text = HolidayName(today) ?? string.Empty;
+        MiniLunarText.Text = _showLunar && KoreanLunar.FromSolar(today) is { } lunar
+            ? Loc.T("Lunar.Memo", lunar.IsLeap ? Loc.T("Lunar.Leap") : string.Empty, lunar.Month, lunar.Day)
+            : string.Empty;
+        _todayTasks.Refresh();
+        MiniEmptyText.Visibility = _todayTasks.IsEmpty ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void MiniButton_Click(object sender, RoutedEventArgs e) => RequestMiniMode(true);
+    private void ExpandButton_Click(object sender, RoutedEventArgs e) => RequestMiniMode(false);
+
+    private void RequestMiniMode(bool mini)
+    {
+        if (_isMiniMode == mini) return;
+        IsMiniMode = mini;
+        MiniModeChanged?.Invoke(mini);
+    }
+
     private void TaskTitle_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         if (e.ClickCount == 2 && sender is FrameworkElement { DataContext: CalendarTask task })
@@ -407,11 +550,11 @@ public partial class CalendarView : UserControl
     #region 달력 그리기
 
     /// <summary>메모장처럼 일정한 간격으로 가로줄이 그어진 배경을 만듭니다.</summary>
-    private static Brush CreateMemoLinesBrush(byte alpha)
+    private Brush CreateMemoLinesBrush(byte alpha)
     {
         var line = new GeometryDrawing(
             null,
-            new Pen(new SolidColorBrush(Color.FromArgb(alpha, 0xC9, 0xB9, 0x98)), 1),
+            new Pen(new SolidColorBrush(Color.FromArgb(alpha, _theme.MemoLine.R, _theme.MemoLine.G, _theme.MemoLine.B)), 1),
             new LineGeometry(new Point(0, MemoLineSpacing - 0.5), new Point(10, MemoLineSpacing - 0.5)));
         var brush = new DrawingBrush(line)
         {
@@ -606,6 +749,20 @@ public partial class CalendarView : UserControl
             DockPanel.SetDock(more, Dock.Right);
             header.Children.Add(more);
         }
+        if (holiday is null && _showLunar && KoreanLunar.FromSolar(date) is { } lunar)
+        {
+            // 공휴일이 있는 날은 공휴일 이름이 더 중요하므로 음력은 메모장 머리에서만 보여 준다.
+            header.Children.Add(new TextBlock
+            {
+                Text = KoreanLunar.Short(lunar),
+                FontSize = 9,
+                Foreground = SubInkBrush,
+                Opacity = 0.85,
+                Margin = new Thickness(3, 1, 0, 0),
+                VerticalAlignment = VerticalAlignment.Center,
+                TextAlignment = TextAlignment.Right
+            });
+        }
         if (holiday is not null)
         {
             header.Children.Add(new TextBlock
@@ -659,7 +816,7 @@ public partial class CalendarView : UserControl
     }
 
     /// <summary>날짜 칸을 오른쪽·아래쪽 격자선으로 감쌉니다.</summary>
-    private static Border CreateGridCell(UIElement child) => new()
+    private Border CreateGridCell(UIElement child) => new()
     {
         BorderBrush = GridLineBrush,
         BorderThickness = new Thickness(0, 0, 1, 1),
@@ -731,7 +888,7 @@ public partial class CalendarView : UserControl
         return bar;
     }
 
-    private static Border CreateChip(Occurrence occurrence)
+    private Border CreateChip(Occurrence occurrence)
     {
         var task = occurrence.Task;
         var done = task.IsCompleted && !task.IsRecurring;
@@ -756,7 +913,7 @@ public partial class CalendarView : UserControl
         };
     }
 
-    private static Brush GetDayColor(DateTime date, string? holiday)
+    private Brush GetDayColor(DateTime date, string? holiday)
     {
         if (holiday is not null || date.DayOfWeek == DayOfWeek.Sunday) return RedBrush;
         return date.DayOfWeek == DayOfWeek.Saturday ? BlueBrush : InkBrush;
@@ -766,6 +923,9 @@ public partial class CalendarView : UserControl
     private void RenderSelectedDate()
     {
         SelectedHolidayText.Text = string.Empty;
+        SelectedLunarText.Text = _mode == MemoMode.List && IsSingleSelection && _showLunar && KoreanLunar.FromSolar(_selectedDate) is { } lunar
+            ? Loc.T("Lunar.Memo", lunar.IsLeap ? Loc.T("Lunar.Leap") : string.Empty, lunar.Month, lunar.Day)
+            : string.Empty;
         switch (_mode)
         {
             case MemoMode.Edit:
@@ -795,6 +955,7 @@ public partial class CalendarView : UserControl
         _selectedDayTasks.Refresh();
         EmptyListText.Visibility = _selectedDayTasks.IsEmpty ? Visibility.Visible : Visibility.Collapsed;
         RenderDdays();
+        RenderMini();
     }
 
     private string DescribeSelection() => IsSingleSelection
@@ -812,6 +973,7 @@ public partial class CalendarView : UserControl
             .Take(2)
             .Select(x => $"{x.Task.DdayLabel} {x.Task.Title}");
         DdayText.Text = string.Join("  ·  ", upcoming);
+        MiniDdayText.Text = DdayText.Text;
     }
 
     #endregion
@@ -1008,7 +1170,6 @@ public partial class CalendarView : UserControl
 
     // 종이 한 장이 넘어가는 시간. 짧게 해서 경쾌하게, CPU 부담도 적게 한다.
     private static readonly Duration FlipDuration = new(TimeSpan.FromMilliseconds(420));
-    private static readonly Color PaperShadowColor = Color.FromRgb(0x5A, 0x4E, 0x3A);
 
     /// <summary>
     /// 보고 있는 달이 바뀌는 변경(apply)을 하면서, 탁상 달력 종이를 넘기듯 보여 줍니다.
@@ -1099,7 +1260,7 @@ public partial class CalendarView : UserControl
         }
 
         var pageHeight = Card.ActualHeight;
-        Color Shadow(byte alpha) => Color.FromArgb(alpha, PaperShadowColor.R, PaperShadowColor.G, PaperShadowColor.B);
+        Color Shadow(byte alpha) => Color.FromArgb(alpha, _theme.Shadow.R, _theme.Shadow.G, _theme.Shadow.B);
 
         // 아래 장에 드리우는 그림자: 스프링 쪽이 가장 진하다.
         var castShadow = new Border
@@ -1148,11 +1309,11 @@ public partial class CalendarView : UserControl
             RenderTransform = new TransformGroup { Children = { curlScale, curlMove } },
             Background = new LinearGradientBrush(
                 [
-                    new GradientStop(Color.FromArgb(0, 0xF3, 0xED, 0xE1), 0),
-                    new GradientStop(Color.FromArgb(255, 0xF3, 0xED, 0xE1), 0.35),
-                    new GradientStop(Color.FromArgb(255, 0xFF, 0xFD, 0xF8), 0.65),
-                    new GradientStop(Color.FromArgb(255, 0xD9, 0xCF, 0xBC), 0.9),
-                    new GradientStop(Color.FromArgb(255, 0xB9, 0xAE, 0x98), 1)
+                    new GradientStop(Color.FromArgb(0, _theme.Page1.R, _theme.Page1.G, _theme.Page1.B), 0),
+                    new GradientStop(_theme.Page1, 0.35),
+                    new GradientStop(_theme.Paper, 0.65),
+                    new GradientStop(_theme.Page1Edge, 0.9),
+                    new GradientStop(_theme.Page2Edge, 1)
                 ],
                 90),
             Opacity = 0
@@ -1218,6 +1379,9 @@ public partial class CalendarView : UserControl
     /// </summary>
     private void OpenEditor(CalendarTask task)
     {
+        // 편집 화면은 큰 달력에 있으므로 미니 모드면 먼저 돌아간다.
+        RequestMiniMode(false);
+
         _editingTask = task;
         _draftRecurrence = task.Recurrence;
         _draftColor = task.Color;
@@ -1251,8 +1415,8 @@ public partial class CalendarView : UserControl
             var selected = recurrence == _draftRecurrence;
             var pill = new Border
             {
-                Background = selected ? InkBrush : Brushes.Transparent,
-                BorderBrush = selected ? InkBrush : SelectedEdgeBrush,
+                Background = selected ? PaperTheme.Solid(_theme.ButtonBack) : Brushes.Transparent,
+                BorderBrush = selected ? PaperTheme.Solid(_theme.ButtonBack) : SelectedEdgeBrush,
                 BorderThickness = new Thickness(1),
                 CornerRadius = new CornerRadius(10),
                 Padding = new Thickness(9, 1, 9, 1),
@@ -1262,7 +1426,7 @@ public partial class CalendarView : UserControl
                 {
                     Text = Loc.T("Repeat." + recurrence),
                     FontSize = 11.5,
-                    Foreground = selected ? Brushes.White : InkBrush
+                    Foreground = selected ? PaperTheme.Solid(_theme.ButtonText) : InkBrush
                 }
             };
             pill.MouseLeftButtonUp += (_, _) =>
@@ -1279,13 +1443,13 @@ public partial class CalendarView : UserControl
             var selected = color == _draftColor;
             var swatch = new Border
             {
-                Width = 18,
-                Height = 18,
-                CornerRadius = new CornerRadius(9),
+                Width = 16,
+                Height = 16,
+                CornerRadius = new CornerRadius(8),
                 Background = TaskPalette.Dot(color),
                 BorderBrush = InkBrush,
                 BorderThickness = new Thickness(selected ? 2 : 0),
-                Margin = new Thickness(0, 0, 6, 0),
+                Margin = new Thickness(0, 0, 5, 0),
                 Cursor = Cursors.Hand
             };
             swatch.MouseLeftButtonUp += (_, _) =>
@@ -1435,15 +1599,19 @@ public partial class CalendarView : UserControl
 
     private void ResizeHandle_DragCompleted(object sender, DragCompletedEventArgs e) => DesktopWidgetHost.EndResize();
 
-    private void MenuButton_Click(object sender, RoutedEventArgs e)
+    private void MenuButton_Click(object sender, RoutedEventArgs e) => OpenMenu(MenuButton);
+    private void MiniMenuButton_Click(object sender, RoutedEventArgs e) => OpenMenu(MiniMenuButton);
+
+    private void OpenMenu(UIElement placementTarget)
     {
         AutoStartMenuItem.IsChecked = AutoStart.IsEnabled;
         HolidaysMenuItem.IsChecked = _showHolidays;
+        LunarMenuItem.IsChecked = _showLunar;
         PageFlipMenuItem.IsChecked = _pageFlipEnabled;
         TransparencySlider.Value = Math.Round(_backgroundTransparency * 100);
         _updateMenuOverride = null;
         RenderUpdateMenu();
-        MenuButton.ContextMenu.PlacementTarget = MenuButton;
+        MenuButton.ContextMenu.PlacementTarget = placementTarget;
         MenuButton.ContextMenu.Placement = PlacementMode.Bottom;
         MenuButton.ContextMenu.IsOpen = true;
     }
@@ -1453,10 +1621,64 @@ public partial class CalendarView : UserControl
 
     private void ResetBounds_Click(object sender, RoutedEventArgs e) => DesktopWidgetHost.ResetBounds();
 
+    private void ThemeItem_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not MenuItem { Tag: string key }) return;
+        MenuButton.ContextMenu.IsOpen = false;
+        ThemeKey = key;
+        ThemeChanged?.Invoke(key);
+    }
+
+    /// <summary>
+    /// 지금 종이 테마의 색을 화면 전체에 입힙니다. XAML의 색 이름표(DynamicResource)를 바꾸고,
+    /// 코드에서 그리는 날짜 칸·메모장 줄·버튼·종이 그림자를 새 색으로 다시 그립니다.
+    /// </summary>
+    private void ApplyTheme()
+    {
+        void Set(string key, Color color) => Resources[key] = PaperTheme.Solid(color);
+        Set("InkBrush", _theme.Ink);
+        Set("SubInkBrush", _theme.SubInk);
+        Set("RedBrush", _theme.Accent);
+        Set("BlueBrush", _theme.Saturday);
+        Set("HoverBrush", _theme.Hover);
+        Set("PressedBrush", _theme.Pressed);
+        Set("LineBrush", _theme.Line);
+        Set("FlatTextBrush", _theme.FlatText);
+        Set("HintBrush", _theme.Hint);
+        Set("DoneTextBrush", _theme.DoneText);
+        Set("DividerBrush", _theme.GridLine);
+        Set("ListHoverBrush", _theme.ListHover);
+        Set("ScheduleTagBrush", _theme.ScheduleTag);
+        Set("ScheduleTagTextBrush", _theme.ScheduleTagText);
+
+        PageLayer1.Background = PaperTheme.Solid(_theme.Page1);
+        PageLayer1.BorderBrush = PaperTheme.Solid(_theme.Page1Edge);
+        PageLayer2.Background = PaperTheme.Solid(_theme.Page2);
+        PageLayer2.BorderBrush = PaperTheme.Solid(_theme.Page2Edge);
+        CardShadow.Color = _theme.Shadow;
+        TextGlow.Color = _theme.Glow;
+        MiniGlow.Color = _theme.Glow;
+        TaskPalette.SetDefault(_theme.DefaultChip, _theme.DefaultChipText, _theme.Line);
+
+        // 종이·버튼·메모장 줄은 투명도와 함께 정해지므로 투명도를 다시 적용한다.
+        BackgroundTransparency = _backgroundTransparency;
+        if (_selectedDayTasks is null) return;
+
+        ApplyLanguage();
+        RenderCalendar();
+        RenderSelectedDate();
+    }
+
     private void PageFlipMenuItem_Click(object sender, RoutedEventArgs e)
     {
         _pageFlipEnabled = PageFlipMenuItem.IsChecked;
         PageFlipEnabledChanged?.Invoke(_pageFlipEnabled);
+    }
+
+    private void LunarMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        ShowLunar = LunarMenuItem.IsChecked;
+        ShowLunarChanged?.Invoke(ShowLunar);
     }
 
     private void HolidaysMenuItem_Click(object sender, RoutedEventArgs e)

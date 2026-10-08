@@ -11,7 +11,10 @@ public enum Recurrence
     None,
     Weekly,
     Monthly,
-    Yearly
+    Yearly,
+
+    /// <summary>매년 음력으로 같은 달·날(음력 생신, 제사 등)</summary>
+    LunarYearly
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter))]
@@ -117,6 +120,9 @@ public sealed class CalendarTask : INotifyPropertyChanged
                 case Recurrence.Yearly:
                     parts.Add(Loc.T("Label.Yearly", Date.ToString("M'/'d")));
                     break;
+                case Recurrence.LunarYearly when KoreanLunar.FromSolar(Date) is { } lunar:
+                    parts.Add(Loc.T("Label.LunarYearly", KoreanLunar.Short(lunar).Replace('.', '/')));
+                    break;
             }
             if (IsMultiDay)
                 parts.Add(IsRecurring ? Loc.T("Label.Days", (LastDate - Date).Days + 1) : $"{Date:M'/'d}~{LastDate:M'/'d}");
@@ -146,6 +152,20 @@ public sealed class CalendarTask : INotifyPropertyChanged
         if (!IsRecurring)
         {
             if (Date <= to && LastDate >= from) yield return new Occurrence(this, Date, LastDate);
+            yield break;
+        }
+
+        if (Recurrence == Recurrence.LunarYearly)
+        {
+            // 처음 날짜의 음력 달·날을 해마다 양력으로 바꾼다. 음력 해는 양력 해와 한 해쯤 어긋날 수 있어 앞뒤로 넉넉히 본다.
+            if (KoreanLunar.FromSolar(Date) is not { } origin) yield break;
+            var firstYear = Math.Max(origin.Year, from.AddDays(-span).Year - 1);
+            for (var year = firstYear; year <= to.Year + 1; year++)
+            {
+                if (KoreanLunar.ToSolar(year, origin.Month, origin.Day, origin.IsLeap) is not { } start || start < Date) continue;
+                var end = start.AddDays(span);
+                if (start <= to && end >= from) yield return new Occurrence(this, start, end);
+            }
             yield break;
         }
 

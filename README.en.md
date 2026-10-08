@@ -7,6 +7,8 @@ It never covers other windows, and it stays visible even when you press `Win + D
 
 <p align="center">
   <img src="docs/screenshot-en.png" alt="Desktop Calendar" width="420">
+  &nbsp;
+  <img src="docs/screenshot-mini-en.png" alt="Compact mode" width="240">
 </p>
 
 ## Features
@@ -19,6 +21,9 @@ It never covers other windows, and it stays visible even when you press `Win + D
 - **Drag to move** and **search** — drag an event to another day; find events by name.
 - **Korean public holidays** (optional) — including lunar holidays and substitute holidays. Off by default in English; turn it on from the menu.
 - **To-dos** — add, check off, edit, delete.
+- **Lunar calendar** — lunar dates in the day cells, and events that repeat **yearly on a lunar date**.
+- **Five paper colors** — Ivory, Kraft, Dark, Sky, Blossom.
+- **Compact (mini) mode** — just today's date and today's tasks.
 - **English / 한국어** — switch the language from the menu.
 - **Background transparency**, **remembers position and size**, **starts with Windows**, **update notifications**.
 
@@ -69,7 +74,7 @@ The memo area turns into an editor:
 |---|---|
 | Title | Rename the event |
 | Date | While editing, **click or drag on the calendar** to change the date or range |
-| Repeat | None / Weekly (same weekday) / Monthly (same day) / Yearly (same month and day) |
+| Repeat | None / Weekly (same weekday) / Monthly (same day) / Yearly (same month and day) / Lunar (same lunar month and day every year) |
 | Color | One of six colors, used in the calendar and the list |
 | Show D-day | Shows the countdown (e.g. `D-12`) in the memo header and the list |
 
@@ -77,6 +82,12 @@ The memo area turns into an editor:
 
 - Monthly events on a day that doesn't exist in a month (e.g. the 31st) appear on the **last day** of that month; yearly events on Feb 29 appear on **Feb 28** in common years.
 - Repeating events show a **repeat icon (↻)** instead of a checkbox. Deleting or moving one affects all occurrences.
+
+### Compact (mini) mode
+
+Click the **shrink button (↘↖)** to switch to a small sheet showing **today's date and weekday, holiday and lunar date, the nearest D-day, and today's tasks**.
+Type in the box at the bottom to add a task for today. The **expand button (↗↙)** brings back the full calendar.
+Each mode remembers its own position and size, and the app starts in the last mode you used.
 
 ### Search
 
@@ -100,6 +111,8 @@ Click a result (or press Enter) to jump to that day. **Esc** closes the search.
 | Check for updates | Check now; opens the download page if a new version exists |
 | Language (언어) | English / 한국어. Defaults to your Windows display language |
 | Show Korean public holidays | Mark Korean public holidays in red. Off by default when the app starts in English |
+| Show lunar dates | Lunar dates in the day cells and memo header. Off by default when the app starts in English |
+| Paper color | Ivory / Kraft / Dark / Sky / Blossom |
 | Page-turn animation | Turn the desk-calendar page when changing months. Turn it off to switch instantly |
 | Background transparency | 0–100%. Text and dates stay readable |
 | Quit | Close the calendar (same as **×**) |

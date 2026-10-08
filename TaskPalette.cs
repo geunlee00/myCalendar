@@ -23,6 +23,10 @@ internal static class TaskPalette
         [TaskColor.Purple] = Make(0xE6DDF0, 0x54367A, 0x8C64B8)
     };
 
+    /// <summary>기본 색 칩은 종이 테마에 맞춰 바꿉니다(예: 다크 테마는 어두운 칩).</summary>
+    public static void SetDefault(Color background, Color text, Color dot) =>
+        Swatches[TaskColor.Default] = new Swatch(PaperTheme.Solid(background), PaperTheme.Solid(text), PaperTheme.Solid(dot));
+
     public static Brush ChipBackground(TaskColor color) => Swatches[color].Background;
     public static Brush ChipText(TaskColor color) => Swatches[color].Text;
 

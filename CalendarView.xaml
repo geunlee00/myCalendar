@@ -12,6 +12,14 @@
         <SolidColorBrush x:Key="HoverBrush" Color="#F3ECDF" />
         <SolidColorBrush x:Key="PressedBrush" Color="#EBE1CC" />
         <SolidColorBrush x:Key="LineBrush" Color="#C9B998" />
+        <!-- 아래 색들은 종이 테마에 맞춰 코드에서 바꾼다(ApplyTheme). -->
+        <SolidColorBrush x:Key="FlatTextBrush" Color="#5C5548" />
+        <SolidColorBrush x:Key="HintBrush" Color="#B0A796" />
+        <SolidColorBrush x:Key="DoneTextBrush" Color="#A8A090" />
+        <SolidColorBrush x:Key="DividerBrush" Color="#E6DDCB" />
+        <SolidColorBrush x:Key="ListHoverBrush" Color="#40E8DCC4" />
+        <SolidColorBrush x:Key="ScheduleTagBrush" Color="#E6EAF0" />
+        <SolidColorBrush x:Key="ScheduleTagTextBrush" Color="#2E4A6B" />
         <local:TaskColorToBrushConverter x:Key="TaskColorToBrush" />
 
         <Style x:Key="DayButtonStyle" TargetType="Button">
@@ -31,10 +39,10 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="DayBorder" Property="Background" Value="{StaticResource HoverBrush}" />
+                                <Setter TargetName="DayBorder" Property="Background" Value="{DynamicResource HoverBrush}" />
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="DayBorder" Property="Background" Value="{StaticResource PressedBrush}" />
+                                <Setter TargetName="DayBorder" Property="Background" Value="{DynamicResource PressedBrush}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -44,7 +52,7 @@
 
         <Style x:Key="FlatButtonStyle" TargetType="Button">
             <Setter Property="Background" Value="Transparent" />
-            <Setter Property="Foreground" Value="#5C5548" />
+            <Setter Property="Foreground" Value="{DynamicResource FlatTextBrush}" />
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="Focusable" Value="False" />
@@ -56,10 +64,10 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Bg" Property="Background" Value="{StaticResource HoverBrush}" />
+                                <Setter TargetName="Bg" Property="Background" Value="{DynamicResource HoverBrush}" />
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="Bg" Property="Background" Value="{StaticResource PressedBrush}" />
+                                <Setter TargetName="Bg" Property="Background" Value="{DynamicResource PressedBrush}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -77,9 +85,9 @@
         <!-- 밑줄만 있는 입력칸 -->
         <Style x:Key="UnderlineTextBox" TargetType="TextBox">
             <Setter Property="BorderThickness" Value="0,0,0,1.5" />
-            <Setter Property="BorderBrush" Value="{StaticResource LineBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
             <Setter Property="Background" Value="Transparent" />
-            <Setter Property="Foreground" Value="{StaticResource InkBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource InkBrush}" />
             <Setter Property="VerticalContentAlignment" Value="Center" />
             <Setter Property="Padding" Value="4,4" />
         </Style>
@@ -97,7 +105,7 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Bg" Property="Background" Value="#40E8DCC4" />
+                                <Setter TargetName="Bg" Property="Background" Value="{DynamicResource ListHoverBrush}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -112,21 +120,21 @@
                 <!-- 하루·여러 날 일정은 완료 체크, 반복 일정은 반복 표시 -->
                 <Grid Width="16" Margin="0,0,8,0" VerticalAlignment="Center">
                     <CheckBox x:Name="Check" Focusable="False" IsChecked="{Binding IsCompleted}" />
-                    <TextBlock x:Name="RepeatIcon" Text="&#xE8EE;" FontFamily="Segoe MDL2 Assets" FontSize="12" Foreground="{StaticResource SubInkBrush}" HorizontalAlignment="Center" Visibility="Collapsed" />
+                    <TextBlock x:Name="RepeatIcon" Text="&#xE8EE;" FontFamily="Segoe MDL2 Assets" FontSize="12" Foreground="{DynamicResource SubInkBrush}" HorizontalAlignment="Center" Visibility="Collapsed" />
                 </Grid>
                 <Ellipse x:Name="ColorDot" Width="8" Height="8" Margin="0,0,6,0" VerticalAlignment="Center" Fill="{Binding Color, Converter={StaticResource TaskColorToBrush}}" />
-                <Border x:Name="DdayTag" Background="{StaticResource RedBrush}" CornerRadius="3" Padding="4,0" Margin="0,0,6,0" VerticalAlignment="Center">
+                <Border x:Name="DdayTag" Background="{DynamicResource RedBrush}" CornerRadius="3" Padding="4,0" Margin="0,0,6,0" VerticalAlignment="Center">
                     <TextBlock Text="{Binding DdayLabel}" FontSize="10.5" FontWeight="SemiBold" Foreground="White" />
                 </Border>
-                <Border x:Name="ScheduleTag" Background="#E6EAF0" CornerRadius="3" Padding="4,0" Margin="0,0,6,0" VerticalAlignment="Center">
-                    <TextBlock Text="{Binding ScheduleLabel}" FontSize="10.5" Foreground="#2E4A6B" />
+                <Border x:Name="ScheduleTag" Background="{DynamicResource ScheduleTagBrush}" CornerRadius="3" Padding="4,0" Margin="0,0,6,0" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding ScheduleLabel}" FontSize="10.5" Foreground="{DynamicResource ScheduleTagTextBrush}" />
                 </Border>
-                <TextBlock x:Name="TitleText" Text="{Binding Title}" Foreground="{StaticResource InkBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Background="Transparent" MouseLeftButtonDown="TaskTitle_MouseLeftButtonDown" />
+                <TextBlock x:Name="TitleText" Text="{Binding Title}" Foreground="{DynamicResource InkBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Background="Transparent" MouseLeftButtonDown="TaskTitle_MouseLeftButtonDown" />
             </DockPanel>
             <DataTemplate.Triggers>
                 <DataTrigger Binding="{Binding IsCompleted}" Value="True">
                     <Setter TargetName="TitleText" Property="TextDecorations" Value="Strikethrough" />
-                    <Setter TargetName="TitleText" Property="Foreground" Value="#A8A090" />
+                    <Setter TargetName="TitleText" Property="Foreground" Value="{DynamicResource DoneTextBrush}" />
                 </DataTrigger>
                 <DataTrigger Binding="{Binding IsRecurring}" Value="True">
                     <Setter TargetName="Check" Property="Visibility" Value="Collapsed" />
@@ -146,9 +154,9 @@
 
         <DataTemplate x:Key="SearchResultTemplate">
             <DockPanel Background="Transparent" Cursor="Hand">
-                <TextBlock Text="{Binding DateText}" Width="128" FontSize="11.5" Foreground="{StaticResource SubInkBrush}" VerticalAlignment="Center" />
+                <TextBlock Text="{Binding DateText}" Width="128" FontSize="11.5" Foreground="{DynamicResource SubInkBrush}" VerticalAlignment="Center" />
                 <Ellipse Width="8" Height="8" Margin="0,0,6,0" VerticalAlignment="Center" Fill="{Binding DotBrush}" />
-                <TextBlock Text="{Binding Title}" Foreground="{StaticResource InkBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                <TextBlock Text="{Binding Title}" Foreground="{DynamicResource InkBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
             </DockPanel>
         </DataTemplate>
     </UserControl.Resources>
@@ -187,36 +195,39 @@
                         </Grid.ColumnDefinitions>
                         <!-- 폭이 좁으면 오른쪽 버튼 자리를 지키고 왼쪽 월 이름을 말줄임으로 줄인다. -->
                         <DockPanel VerticalAlignment="Center">
-                            <TextBlock x:Name="MonthNumberText" DockPanel.Dock="Left" FontFamily="Georgia" FontSize="48" FontWeight="Bold" Typography.NumeralStyle="Lining" Foreground="{StaticResource RedBrush}" VerticalAlignment="Center" />
+                            <TextBlock x:Name="MonthNumberText" DockPanel.Dock="Left" FontFamily="Georgia" FontSize="48" FontWeight="Bold" Typography.NumeralStyle="Lining" Foreground="{DynamicResource RedBrush}" VerticalAlignment="Center" />
                             <StackPanel Margin="12,2,8,0" VerticalAlignment="Center">
-                                <TextBlock x:Name="MonthNameText" FontFamily="Georgia" FontSize="15" FontWeight="Bold" Foreground="{StaticResource InkBrush}" TextTrimming="CharacterEllipsis" />
-                                <TextBlock x:Name="YearText" Margin="0,3,0,0" FontSize="12" Foreground="{StaticResource SubInkBrush}" TextTrimming="CharacterEllipsis" />
+                                <TextBlock x:Name="MonthNameText" FontFamily="Georgia" FontSize="15" FontWeight="Bold" Foreground="{DynamicResource InkBrush}" TextTrimming="CharacterEllipsis" />
+                                <TextBlock x:Name="YearText" Margin="0,3,0,0" FontSize="12" Foreground="{DynamicResource SubInkBrush}" TextTrimming="CharacterEllipsis" />
                             </StackPanel>
                         </DockPanel>
                         <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                             <Button x:Name="SearchButton" Content="&#xE721;" FontFamily="Segoe MDL2 Assets" Width="28" Height="28" FontSize="13" Style="{StaticResource FlatButtonStyle}" Click="SearchButton_Click" />
                             <Button x:Name="PrevButton" Content="‹" Width="28" Height="28" FontSize="20" Style="{StaticResource FlatButtonStyle}" Click="PreviousMonth_Click" />
-                            <Button x:Name="TodayButton" Height="28" Padding="8,0" FontSize="12" Foreground="{StaticResource RedBrush}" Style="{StaticResource FlatButtonStyle}" Click="Today_Click" />
+                            <Button x:Name="TodayButton" Height="28" Padding="8,0" FontSize="12" Foreground="{DynamicResource RedBrush}" Style="{StaticResource FlatButtonStyle}" Click="Today_Click" />
                             <Button x:Name="NextButton" Content="›" Width="28" Height="28" FontSize="20" Style="{StaticResource FlatButtonStyle}" Click="NextMonth_Click" />
-                            <Border Width="1" Height="16" Margin="6,0" Background="#DDD3C0" />
+                            <Border Width="1" Height="16" Margin="6,0" Background="{DynamicResource DividerBrush}" />
                             <!-- 새 버전이 있을 때만 보인다. 누르면 내려받기 페이지가 열린다. -->
                             <Button x:Name="UpdateBadge" Visibility="Collapsed" Height="20" Margin="0,0,4,0" Padding="7,0"
                                     FontSize="11" FontWeight="SemiBold" Foreground="White" Cursor="Hand" Focusable="False" Click="UpdateBadge_Click">
                                 <Button.Template>
                                     <ControlTemplate TargetType="Button">
-                                        <Border Background="{StaticResource RedBrush}" CornerRadius="10" Padding="{TemplateBinding Padding}">
+                                        <Border Background="{DynamicResource RedBrush}" CornerRadius="10" Padding="{TemplateBinding Padding}">
                                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                                         </Border>
                                     </ControlTemplate>
                                 </Button.Template>
                             </Button>
+                            <Button x:Name="MiniButton" Content="&#xE73F;" FontFamily="Segoe MDL2 Assets" Width="28" Height="28" FontSize="12" Style="{StaticResource FlatButtonStyle}" Click="MiniButton_Click" />
                             <Button x:Name="MenuButton" Content="⋯" Width="28" Height="28" FontSize="16" Style="{StaticResource FlatButtonStyle}" Click="MenuButton_Click">
                                 <Button.ContextMenu>
                                     <ContextMenu>
                                         <MenuItem x:Name="AutoStartMenuItem" IsCheckable="True" Click="AutoStartMenuItem_Click" />
                                         <MenuItem x:Name="ResetBoundsMenuItem" Click="ResetBounds_Click" />
                                         <MenuItem x:Name="HolidaysMenuItem" IsCheckable="True" Click="HolidaysMenuItem_Click" />
+                                        <MenuItem x:Name="LunarMenuItem" IsCheckable="True" Click="LunarMenuItem_Click" />
                                         <MenuItem x:Name="PageFlipMenuItem" IsCheckable="True" Click="PageFlipMenuItem_Click" />
+                                        <MenuItem x:Name="ThemeMenuItem" />
                                         <MenuItem x:Name="UpdateMenuItem" StaysOpenOnClick="True" Click="UpdateMenuItem_Click" />
                                         <MenuItem x:Name="LanguageMenuItem">
                                             <MenuItem x:Name="KoreanMenuItem" Header="한국어" IsCheckable="True" Click="KoreanMenuItem_Click" />
@@ -243,13 +254,13 @@
                     </Grid>
 
                     <!-- 요일: 언어에 맞춰 코드에서 채운다. 아래에 진한 선을 그어 인쇄된 달력처럼 나눈다. -->
-                    <Border Grid.Row="1" BorderBrush="{StaticResource InkBrush}" BorderThickness="0,0,0,1.5">
+                    <Border Grid.Row="1" BorderBrush="{DynamicResource InkBrush}" BorderThickness="0,0,0,1.5">
                         <UniformGrid x:Name="WeekdayHeader" Columns="7" />
                     </Border>
 
                     <!-- 날짜 칸: 클릭하면 선택, 끌면 기간 선택, 일정을 끌면 옮기기, 더블클릭하면 입력이나 편집. 휠로 달을 넘긴다. -->
                     <!-- 위쪽 선은 요일 아래 선이 맡고, 바깥 왼쪽 선과 칸마다 오른쪽·아래쪽 선을 그어 선이 겹치지 않게 한다. -->
-                    <Border Grid.Row="2" BorderBrush="#E6DDCB" BorderThickness="1,0,0,0">
+                    <Border Grid.Row="2" BorderBrush="{DynamicResource DividerBrush}" BorderThickness="1,0,0,0">
                         <UniformGrid x:Name="DayGrid" Columns="7" Background="Transparent"
                                      MouseWheel="Calendar_MouseWheel"
                                      PreviewMouseLeftButtonDown="DayGrid_PreviewMouseLeftButtonDown"
@@ -264,15 +275,16 @@
                             <RowDefinition Height="28" />
                             <RowDefinition Height="*" />
                         </Grid.RowDefinitions>
-                        <Border BorderBrush="{StaticResource InkBrush}" BorderThickness="0,0,0,1.5">
+                        <Border BorderBrush="{DynamicResource InkBrush}" BorderThickness="0,0,0,1.5">
                             <DockPanel>
                                 <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
-                                    <TextBlock Text="MEMO" FontFamily="Georgia" FontSize="12" FontWeight="Bold" Foreground="{StaticResource RedBrush}" VerticalAlignment="Center" Margin="0,0,10,0" />
-                                    <TextBlock x:Name="SelectedDateText" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource InkBrush}" VerticalAlignment="Center" />
-                                    <TextBlock x:Name="SelectedHolidayText" Margin="8,0,0,0" FontSize="12" Foreground="{StaticResource RedBrush}" VerticalAlignment="Center" />
+                                    <TextBlock Text="MEMO" FontFamily="Georgia" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource RedBrush}" VerticalAlignment="Center" Margin="0,0,10,0" />
+                                    <TextBlock x:Name="SelectedDateText" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource InkBrush}" VerticalAlignment="Center" />
+                                    <TextBlock x:Name="SelectedHolidayText" Margin="8,0,0,0" FontSize="12" Foreground="{DynamicResource RedBrush}" VerticalAlignment="Center" />
+                                    <TextBlock x:Name="SelectedLunarText" Margin="8,0,0,0" FontSize="11.5" Foreground="{DynamicResource SubInkBrush}" VerticalAlignment="Center" />
                                 </StackPanel>
                                 <!-- 날짜를 먼저 보여 주고, D-day는 남는 자리에서 오른쪽에 붙여 넘치면 말줄임으로 줄인다. -->
-                                <TextBlock x:Name="DdayText" Margin="12,0,0,0" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource RedBrush}" VerticalAlignment="Center" TextAlignment="Right" TextTrimming="CharacterEllipsis" />
+                                <TextBlock x:Name="DdayText" Margin="12,0,0,0" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource RedBrush}" VerticalAlignment="Center" TextAlignment="Right" TextTrimming="CharacterEllipsis" />
                             </DockPanel>
                         </Border>
 
@@ -287,14 +299,14 @@
                             <ListBox x:Name="TaskList" BorderThickness="0" Background="Transparent"
                                      ItemTemplate="{StaticResource TaskTemplate}" ItemContainerStyle="{StaticResource TaskItemStyle}"
                                      ScrollViewer.HorizontalScrollBarVisibility="Disabled" />
-                            <TextBlock x:Name="EmptyListText" Margin="6,6,0,0" FontSize="12" Foreground="#A8A090" IsHitTestVisible="False" />
+                            <TextBlock x:Name="EmptyListText" Margin="6,6,0,0" FontSize="12" Foreground="{DynamicResource DoneTextBrush}" IsHitTestVisible="False" />
                             <Grid Grid.Row="1" Margin="0,6,0,0">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
                                 <TextBox x:Name="TaskInput" Grid.Column="0" Height="30" Style="{StaticResource UnderlineTextBox}" KeyDown="TaskInput_KeyDown" />
-                                <TextBlock x:Name="InputHint" Grid.Column="0" Margin="7,0,0,0" VerticalAlignment="Center" Foreground="#B0A796" IsHitTestVisible="False">
+                                <TextBlock x:Name="InputHint" Grid.Column="0" Margin="7,0,0,0" VerticalAlignment="Center" Foreground="{DynamicResource HintBrush}" IsHitTestVisible="False">
                                     <TextBlock.Style>
                                         <Style TargetType="TextBlock">
                                             <Setter Property="Visibility" Value="Collapsed" />
@@ -322,26 +334,27 @@
                                 <ColumnDefinition Width="Auto" MinWidth="44" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
-                            <TextBox x:Name="EditorTitle" Grid.ColumnSpan="2" Height="28" FontSize="13" Style="{StaticResource UnderlineTextBox}" KeyDown="EditorTitle_KeyDown" />
-
-                            <TextBlock x:Name="EditorDateLabel" Grid.Row="1" FontSize="11.5" Foreground="{StaticResource SubInkBrush}" VerticalAlignment="Center" Margin="0,0,8,0" />
-                            <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                                <TextBlock x:Name="EditorDateText" FontSize="12.5" FontWeight="SemiBold" Foreground="{StaticResource InkBrush}" />
-                                <TextBlock x:Name="EditorDateHint" Margin="8,0,0,0" FontSize="11" Foreground="{StaticResource SubInkBrush}" />
-                            </StackPanel>
-
-                            <TextBlock x:Name="EditorRepeatLabel" Grid.Row="2" FontSize="11.5" Foreground="{StaticResource SubInkBrush}" VerticalAlignment="Center" Margin="0,0,8,0" />
-                            <DockPanel Grid.Row="2" Grid.Column="1" VerticalAlignment="Center">
-                                <CheckBox x:Name="EditorDday" DockPanel.Dock="Right" VerticalAlignment="Center" Focusable="False" Foreground="{StaticResource InkBrush}" FontSize="11.5" />
-                                <StackPanel x:Name="RepeatOptions" Orientation="Horizontal" VerticalAlignment="Center" />
+                            <!-- 제목 줄 오른쪽에 D-day 표시를 두어, 반복 줄에는 반복 버튼만 오게 한다(좁은 폭에서도 다 보이게). -->
+                            <DockPanel Grid.ColumnSpan="2">
+                                <CheckBox x:Name="EditorDday" DockPanel.Dock="Right" Margin="10,0,0,0" VerticalAlignment="Center" Focusable="False" Foreground="{DynamicResource InkBrush}" FontSize="11.5" />
+                                <TextBox x:Name="EditorTitle" Height="28" FontSize="13" Style="{StaticResource UnderlineTextBox}" KeyDown="EditorTitle_KeyDown" />
                             </DockPanel>
 
-                            <TextBlock x:Name="EditorColorLabel" Grid.Row="3" FontSize="11.5" Foreground="{StaticResource SubInkBrush}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                            <TextBlock x:Name="EditorDateLabel" Grid.Row="1" FontSize="11.5" Foreground="{DynamicResource SubInkBrush}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                            <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock x:Name="EditorDateText" FontSize="12.5" FontWeight="SemiBold" Foreground="{DynamicResource InkBrush}" />
+                                <TextBlock x:Name="EditorDateHint" Margin="8,0,0,0" FontSize="11" Foreground="{DynamicResource SubInkBrush}" />
+                            </StackPanel>
+
+                            <TextBlock x:Name="EditorRepeatLabel" Grid.Row="2" FontSize="11.5" Foreground="{DynamicResource SubInkBrush}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                            <StackPanel x:Name="RepeatOptions" Grid.Row="2" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" />
+
+                            <TextBlock x:Name="EditorColorLabel" Grid.Row="3" FontSize="11.5" Foreground="{DynamicResource SubInkBrush}" VerticalAlignment="Center" Margin="0,0,8,0" />
                             <DockPanel Grid.Row="3" Grid.Column="1" VerticalAlignment="Center">
                                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-                                    <Button x:Name="EditorDelete" Height="26" Padding="8,0" Margin="0,0,2,0" Foreground="{StaticResource RedBrush}" Style="{StaticResource FlatButtonStyle}" Click="EditorDelete_Click" />
-                                    <Button x:Name="EditorCancel" Height="26" Padding="8,0" Margin="0,0,6,0" Style="{StaticResource FlatButtonStyle}" Click="EditorCancel_Click" />
-                                    <Button x:Name="EditorSave" Height="26" Padding="14,0" FontWeight="SemiBold" Cursor="Hand" Template="{StaticResource PillButtonTemplate}" Click="EditorSave_Click" />
+                                    <Button x:Name="EditorDelete" Height="26" Padding="6,0" Margin="0,0,0,0" Foreground="{DynamicResource RedBrush}" Style="{StaticResource FlatButtonStyle}" Click="EditorDelete_Click" />
+                                    <Button x:Name="EditorCancel" Height="26" Padding="6,0" Margin="0,0,4,0" Style="{StaticResource FlatButtonStyle}" Click="EditorCancel_Click" />
+                                    <Button x:Name="EditorSave" Height="26" Padding="12,0" FontWeight="SemiBold" Cursor="Hand" Template="{StaticResource PillButtonTemplate}" Click="EditorSave_Click" />
                                 </StackPanel>
                                 <StackPanel x:Name="ColorOptions" Orientation="Horizontal" VerticalAlignment="Center" />
                             </DockPanel>
@@ -354,7 +367,7 @@
                                 <RowDefinition Height="*" />
                             </Grid.RowDefinitions>
                             <TextBox x:Name="SearchInput" Height="28" Style="{StaticResource UnderlineTextBox}" TextChanged="SearchInput_TextChanged" KeyDown="SearchInput_KeyDown" />
-                            <TextBlock x:Name="SearchHint" Margin="7,0,0,0" VerticalAlignment="Center" Foreground="#B0A796" IsHitTestVisible="False">
+                            <TextBlock x:Name="SearchHint" Margin="7,0,0,0" VerticalAlignment="Center" Foreground="{DynamicResource HintBrush}" IsHitTestVisible="False">
                                 <TextBlock.Style>
                                     <Style TargetType="TextBlock">
                                         <Setter Property="Visibility" Value="Collapsed" />
@@ -370,8 +383,80 @@
                                      ItemTemplate="{StaticResource SearchResultTemplate}" ItemContainerStyle="{StaticResource TaskItemStyle}"
                                      ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                                      PreviewMouseLeftButtonUp="SearchResults_PreviewMouseLeftButtonUp" />
-                            <TextBlock x:Name="SearchEmptyText" Grid.Row="1" Margin="6,6,0,0" FontSize="12" Foreground="#A8A090" IsHitTestVisible="False" Visibility="Collapsed" />
+                            <TextBlock x:Name="SearchEmptyText" Grid.Row="1" Margin="6,6,0,0" FontSize="12" Foreground="{DynamicResource DoneTextBrush}" IsHitTestVisible="False" Visibility="Collapsed" />
                         </Grid>
+                    </Grid>
+                </Grid>
+
+                <!-- 미니 모드: 오늘 날짜와 오늘 할 일만 작게 보여 준다. -->
+                <Grid x:Name="MiniGrid" Margin="20,28,20,14" Visibility="Collapsed">
+                    <Grid.Effect>
+                        <DropShadowEffect x:Name="MiniGlow" Color="White" BlurRadius="5" ShadowDepth="0" Opacity="0" />
+                    </Grid.Effect>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="62" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="36" />
+                    </Grid.RowDefinitions>
+
+                    <!-- 머리: 오늘 날짜. 끌어서 위젯을 옮긴다. -->
+                    <Grid Background="Transparent" Cursor="SizeAll" MouseLeftButtonDown="Header_MouseLeftButtonDown">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <DockPanel VerticalAlignment="Center">
+                            <TextBlock x:Name="MiniDayText" DockPanel.Dock="Left" FontFamily="Georgia" FontSize="46" FontWeight="Bold" Typography.NumeralStyle="Lining" Foreground="{DynamicResource RedBrush}" VerticalAlignment="Center" />
+                            <StackPanel Margin="10,2,6,0" VerticalAlignment="Center">
+                                <TextBlock x:Name="MiniWeekdayText" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource InkBrush}" TextTrimming="CharacterEllipsis" />
+                                <TextBlock x:Name="MiniMonthText" Margin="0,2,0,0" FontSize="12" Foreground="{DynamicResource SubInkBrush}" TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+                        </DockPanel>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                            <Button x:Name="ExpandButton" Content="&#xE740;" FontFamily="Segoe MDL2 Assets" Width="26" Height="26" FontSize="12" Style="{StaticResource FlatButtonStyle}" Click="ExpandButton_Click" />
+                            <Button x:Name="MiniMenuButton" Content="⋯" Width="26" Height="26" FontSize="15" Style="{StaticResource FlatButtonStyle}" Click="MiniMenuButton_Click" />
+                            <Button x:Name="MiniCloseButton" Content="×" Width="26" Height="26" FontSize="16" Style="{StaticResource FlatButtonStyle}" Click="Close_Click" />
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- 오늘의 공휴일·음력, 가장 가까운 D-day -->
+                    <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="2,0,0,2">
+                        <TextBlock x:Name="MiniHolidayText" FontSize="11.5" Foreground="{DynamicResource RedBrush}" Margin="0,0,8,0" />
+                        <TextBlock x:Name="MiniLunarText" FontSize="11.5" Foreground="{DynamicResource SubInkBrush}" />
+                    </StackPanel>
+                    <TextBlock x:Name="MiniDdayText" Grid.Row="2" Margin="2,0,0,6" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource RedBrush}" TextTrimming="CharacterEllipsis" />
+
+                    <!-- 오늘 할 일 -->
+                    <Grid Grid.Row="3">
+                        <Border BorderBrush="{DynamicResource InkBrush}" BorderThickness="0,1.5,0,0" />
+                        <Border x:Name="MiniMemoLines" Margin="0,1.5,0,0" />
+                        <ListBox x:Name="MiniTaskList" Margin="0,1.5,0,0" BorderThickness="0" Background="Transparent"
+                                 ItemTemplate="{StaticResource TaskTemplate}" ItemContainerStyle="{StaticResource TaskItemStyle}"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled" />
+                        <TextBlock x:Name="MiniEmptyText" Margin="6,8,0,0" FontSize="12" Foreground="{DynamicResource DoneTextBrush}" IsHitTestVisible="False" />
+                    </Grid>
+
+                    <Grid Grid.Row="4" Margin="0,6,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBox x:Name="MiniTaskInput" Height="30" Style="{StaticResource UnderlineTextBox}" KeyDown="MiniTaskInput_KeyDown" />
+                        <TextBlock x:Name="MiniInputHint" Margin="7,0,0,0" VerticalAlignment="Center" Foreground="{DynamicResource HintBrush}" IsHitTestVisible="False" TextTrimming="CharacterEllipsis">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Text, ElementName=MiniTaskInput}" Value="">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                        <Button x:Name="MiniAddButton" Grid.Column="1" MinWidth="48" Margin="8,0,0,0" Height="30" Padding="10,0" Click="MiniAddButton_Click" FontWeight="SemiBold" Cursor="Hand" Template="{StaticResource PillButtonTemplate}" />
                     </Grid>
                 </Grid>
 
@@ -398,7 +483,7 @@
                         <Thumb.Template>
                             <ControlTemplate TargetType="Thumb">
                                 <Grid Background="Transparent">
-                                    <Path Data="M 15,5 L 5,15 M 15,10 L 10,15" Stroke="#C2B8A5" StrokeThickness="1.4" StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+                                    <Path Data="M 15,5 L 5,15 M 15,10 L 10,15" Stroke="{DynamicResource LineBrush}" StrokeThickness="1.4" StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
                                 </Grid>
                             </ControlTemplate>
                         </Thumb.Template>
