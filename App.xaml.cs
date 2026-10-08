@@ -56,6 +56,12 @@ public partial class App : Application
             _settings.ShowKoreanHolidays = show;
             _settingsStore.Save(_settings);
         };
+        _view.PageFlipEnabled = _settings.PageFlipAnimation ?? true;
+        _view.PageFlipEnabledChanged += enabled =>
+        {
+            _settings.PageFlipAnimation = enabled;
+            _settingsStore.Save(_settings);
+        };
         _view.LanguageChanged += language =>
         {
             _settings.Language = Loc.ToCode(language);

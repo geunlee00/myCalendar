@@ -9,6 +9,8 @@ using System.Windows.Data;
 using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
+using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using CalendarWidget.Models;
 using CalendarWidget.Services;
@@ -105,6 +107,7 @@ public partial class CalendarView : UserControl
     private int _chipsPerDay = 2;
     private double _backgroundTransparency;
     private bool _showHolidays = true;
+    private bool _pageFlipEnabled = true;
 
     /// <summary>배경 투명도(0 = 불투명, 1 = 투명)를 사용자가 바꾸면 알려 줍니다.</summary>
     public event Action<double>? BackgroundTransparencyChanged;
@@ -114,6 +117,16 @@ public partial class CalendarView : UserControl
 
     /// <summary>사용자가 메뉴에서 공휴일 표시를 켜거나 끄면 알려 줍니다.</summary>
     public event Action<bool>? ShowHolidaysChanged;
+
+    /// <summary>사용자가 메뉴에서 종이 넘기기 효과를 켜거나 끄면 알려 줍니다.</summary>
+    public event Action<bool>? PageFlipEnabledChanged;
+
+    /// <summary>달을 바꿀 때 탁상 달력 종이를 넘기는 움직임을 보여 줄지.</summary>
+    public bool PageFlipEnabled
+    {
+        get => _pageFlipEnabled;
+        set => _pageFlipEnabled = value;
+    }
 
     /// <summary>
     /// 대한민국 공휴일을 빨간 날로 표시할지. 다른 나라 사용자는 끌 수 있습니다.
@@ -224,6 +237,7 @@ public partial class CalendarView : UserControl
         AutoStartMenuItem.Header = Loc.T("Menu.AutoStart");
         ResetBoundsMenuItem.Header = Loc.T("Menu.ResetBounds");
         HolidaysMenuItem.Header = Loc.T("Menu.Holidays");
+        PageFlipMenuItem.Header = Loc.T("Menu.PageFlip");
         LanguageMenuItem.Header = Loc.T("Menu.Language");
         KoreanMenuItem.IsChecked = Loc.Current == AppLanguage.Korean;
         EnglishMenuItem.IsChecked = Loc.Current == AppLanguage.English;
@@ -806,10 +820,13 @@ public partial class CalendarView : UserControl
 
     private void SelectDate(DateTime date)
     {
-        _selectedDate = _selectedEndDate = _selectionAnchor = date.Date;
-        _displayMonth = new DateTime(date.Year, date.Month, 1);
-        RenderCalendar();
-        RenderSelectedDate();
+        WithPageFlip(date, () =>
+        {
+            _selectedDate = _selectedEndDate = _selectionAnchor = date.Date;
+            _displayMonth = new DateTime(date.Year, date.Month, 1);
+            RenderCalendar();
+            RenderSelectedDate();
+        });
     }
 
     /// <summary>두 날짜 사이를 기간으로 고릅니다. 순서는 상관없습니다. 보고 있는 달은 바꾸지 않습니다.</summary>
@@ -827,8 +844,12 @@ public partial class CalendarView : UserControl
 
     private void ShowMonth(int offset)
     {
-        _displayMonth = _displayMonth.AddMonths(offset);
-        RenderCalendar();
+        var month = _displayMonth.AddMonths(offset);
+        WithPageFlip(month, () =>
+        {
+            _displayMonth = month;
+            RenderCalendar();
+        });
     }
 
     private void DayGrid_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -983,6 +1004,203 @@ public partial class CalendarView : UserControl
 
     #endregion
 
+    #region 종이 넘기기
+
+    // 종이 한 장이 넘어가는 시간. 짧게 해서 경쾌하게, CPU 부담도 적게 한다.
+    private static readonly Duration FlipDuration = new(TimeSpan.FromMilliseconds(420));
+    private static readonly Color PaperShadowColor = Color.FromRgb(0x5A, 0x4E, 0x3A);
+
+    /// <summary>
+    /// 보고 있는 달이 바뀌는 변경(apply)을 하면서, 탁상 달력 종이를 넘기듯 보여 줍니다.
+    /// 다음 달로 가면 지금 장이 스프링 쪽으로 들려 넘어가고, 이전 달로 가면 뒷장이 위에서 내려와 덮습니다.
+    /// 달이 그대로면 변경만 합니다.
+    /// </summary>
+    private void WithPageFlip(DateTime newMonthDay, Action apply)
+    {
+        var newMonth = new DateTime(newMonthDay.Year, newMonthDay.Month, 1);
+        var forward = newMonth > _displayMonth;
+        var before = _pageFlipEnabled && newMonth != _displayMonth ? CapturePage() : null;
+
+        apply();
+
+        if (before is not null) PlayPageFlip(before, forward);
+    }
+
+    /// <summary>
+    /// 맨 앞 종이를 지금 모습 그대로 그림으로 찍습니다. 화면에 붙기 전이면 null입니다.
+    /// 그림자 효과까지 크기를 늘리지 않도록 종이 영역만 원래 크기로 찍습니다.
+    /// </summary>
+    private BitmapSource? CapturePage()
+    {
+        if (!IsLoaded || Card.ActualWidth < 1 || Card.ActualHeight < 1) return null;
+
+        var dpi = VisualTreeHelper.GetDpi(Card);
+        var size = new Size(Card.ActualWidth, Card.ActualHeight);
+        var brush = new VisualBrush(Card)
+        {
+            Stretch = Stretch.None,
+            AlignmentX = AlignmentX.Left,
+            AlignmentY = AlignmentY.Top,
+            ViewboxUnits = BrushMappingMode.Absolute,
+            Viewbox = new Rect(size)
+        };
+        var drawing = new DrawingVisual();
+        using (var context = drawing.RenderOpen()) context.DrawRectangle(brush, null, new Rect(size));
+
+        // 흐림 효과(종이 그림자, 글자 흰 빛)는 CPU로 그리면 아주 느리므로 찍는 동안만 잠깐 끈다.
+        var cardEffect = Card.Effect;
+        var contentEffect = ContentGrid.Effect;
+        Card.Effect = null;
+        ContentGrid.Effect = null;
+
+        var bitmap = new RenderTargetBitmap(
+            (int)Math.Ceiling(size.Width * dpi.DpiScaleX),
+            (int)Math.Ceiling(size.Height * dpi.DpiScaleY),
+            dpi.PixelsPerInchX,
+            dpi.PixelsPerInchY,
+            PixelFormats.Pbgra32);
+        bitmap.Render(drawing);
+        bitmap.Freeze();
+        Card.Effect = cardEffect;
+        ContentGrid.Effect = contentEffect;
+        return bitmap;
+    }
+
+    // 종이가 들릴 때 보는 사람 쪽으로 다가오며 넓어지는 정도(원근감). 위젯 창 여백(양쪽 10) 안에 들어가게 3%로 둔다.
+    private const double FlipWiden = 1.03;
+
+    // 들리는 종이 아래 끝에 보이는, 말려 올라간 뒷면 띠의 높이.
+    private const double CurlHeight = 14;
+
+    /// <summary>
+    /// 찍어 둔 종이 그림으로 넘기는 움직임을 보여 줍니다. 실제 달력은 이미 새 달로 바뀌어 있습니다.
+    /// 종이는 위쪽 가장자리(스프링)를 축으로 접히듯 들리면서 보는 사람 쪽으로 다가와 살짝 넓어지고,
+    /// 아래 끝에는 말려 올라간 뒷면이 보이며, 표면에 빛이 스쳐 갑니다. 들릴수록 안쪽이 어두워지고
+    /// 아래 장에는 넘어가는 종이의 그림자가 드리웁니다. 이전 달로 갈 때는 이 움직임을 거꾸로 보여 줍니다.
+    /// </summary>
+    private void PlayPageFlip(BitmapSource before, bool forward)
+    {
+        // 넘기는 중에 또 넘기면 앞의 움직임은 바로 끝낸다.
+        FlipLayer.Children.Clear();
+
+        BitmapSource movingPage;
+        if (forward)
+        {
+            // 다음 달: 새 달은 실제 달력이 보여 주고, 그 위에 옛 장을 얹어 들어 올린다.
+            movingPage = before;
+        }
+        else
+        {
+            // 이전 달: 아래에는 옛 장을 깔고, 새로 찍은 이전 달 장을 위에서 내려 덮는다.
+            Card.UpdateLayout();
+            if (CapturePage() is not { } after) return;
+            movingPage = after;
+            FlipLayer.Children.Add(new Image { Source = before, Stretch = Stretch.Fill });
+        }
+
+        var pageHeight = Card.ActualHeight;
+        Color Shadow(byte alpha) => Color.FromArgb(alpha, PaperShadowColor.R, PaperShadowColor.G, PaperShadowColor.B);
+
+        // 아래 장에 드리우는 그림자: 스프링 쪽이 가장 진하다.
+        var castShadow = new Border
+        {
+            CornerRadius = new CornerRadius(6),
+            Background = new LinearGradientBrush(Shadow(110), Shadow(0), 90)
+        };
+        FlipLayer.Children.Add(castShadow);
+
+        // 넘어가는 종이: 들릴수록 안쪽(아래쪽)이 어두워지고, 기울어지는 동안 표면에 빛이 스쳐 간다.
+        var shade = new Border
+        {
+            CornerRadius = new CornerRadius(6),
+            Background = new LinearGradientBrush(Shadow(0), Shadow(150), 90)
+        };
+        var gloss = new Border
+        {
+            CornerRadius = new CornerRadius(6),
+            Background = new LinearGradientBrush(
+                [
+                    new GradientStop(Color.FromArgb(0, 255, 255, 255), 0.15),
+                    new GradientStop(Color.FromArgb(110, 255, 255, 255), 0.45),
+                    new GradientStop(Color.FromArgb(0, 255, 255, 255), 0.8)
+                ],
+                90),
+            Opacity = 0
+        };
+        var pageScale = new ScaleTransform(1, 1);
+        var page = new Grid
+        {
+            RenderTransformOrigin = new Point(0.5, 0),
+            RenderTransform = pageScale,
+            Children = { new Image { Source = movingPage, Stretch = Stretch.Fill }, shade, gloss }
+        };
+        FlipLayer.Children.Add(page);
+
+        // 들리는 종이 아래 끝을 따라 움직이는, 말려 올라간 뒷면 띠
+        var curlScale = new ScaleTransform(1, 1);
+        var curlMove = new TranslateTransform();
+        var curl = new Border
+        {
+            Height = CurlHeight,
+            VerticalAlignment = VerticalAlignment.Top,
+            CornerRadius = new CornerRadius(0, 0, 6, 6),
+            RenderTransformOrigin = new Point(0.5, 0),
+            RenderTransform = new TransformGroup { Children = { curlScale, curlMove } },
+            Background = new LinearGradientBrush(
+                [
+                    new GradientStop(Color.FromArgb(0, 0xF3, 0xED, 0xE1), 0),
+                    new GradientStop(Color.FromArgb(255, 0xF3, 0xED, 0xE1), 0.35),
+                    new GradientStop(Color.FromArgb(255, 0xFF, 0xFD, 0xF8), 0.65),
+                    new GradientStop(Color.FromArgb(255, 0xD9, 0xCF, 0xBC), 0.9),
+                    new GradientStop(Color.FromArgb(255, 0xB9, 0xAE, 0x98), 1)
+                ],
+                90),
+            Opacity = 0
+        };
+        FlipLayer.Children.Add(curl);
+
+        // 들어 올릴 때는 점점 빠르게, 내려 덮을 때는 점점 느리게 내려앉는다. 모든 움직임이 같은 흐름을 따른다.
+        IEasingFunction easing = new CubicEase { EasingMode = forward ? EasingMode.EaseIn : EasingMode.EaseOut };
+        DoubleAnimation Move(double lifted, double flat) => forward
+            ? new DoubleAnimation(flat, lifted, FlipDuration) { EasingFunction = easing }
+            : new DoubleAnimation(lifted, flat, FlipDuration) { EasingFunction = easing };
+
+        // 말린 끝과 빛은 움직이는 동안에만 잠깐 보인다.
+        static DoubleAnimationUsingKeyFrames Envelope(double peak) => new()
+        {
+            Duration = FlipDuration,
+            KeyFrames =
+            {
+                new LinearDoubleKeyFrame(0, KeyTime.FromPercent(0)),
+                new LinearDoubleKeyFrame(peak, KeyTime.FromPercent(0.2)),
+                new LinearDoubleKeyFrame(peak, KeyTime.FromPercent(0.75)),
+                new LinearDoubleKeyFrame(0, KeyTime.FromPercent(1))
+            }
+        };
+
+        // 넘기는 동안 아래 달력은 바뀌지 않으므로 한 번 그린 그림으로 고정해, 흐림 효과를 매번 다시 계산하지 않게 한다.
+        Card.CacheMode = new BitmapCache(VisualTreeHelper.GetDpi(Card).DpiScaleX);
+
+        var fold = Move(lifted: 0, flat: 1);
+        fold.Completed += (_, _) =>
+        {
+            if (!FlipLayer.Children.Contains(page)) return;
+            FlipLayer.Children.Clear();
+            Card.CacheMode = null;
+        };
+
+        pageScale.BeginAnimation(ScaleTransform.ScaleYProperty, fold);
+        pageScale.BeginAnimation(ScaleTransform.ScaleXProperty, Move(lifted: FlipWiden, flat: 1));
+        curlScale.BeginAnimation(ScaleTransform.ScaleXProperty, Move(lifted: FlipWiden, flat: 1));
+        curlMove.BeginAnimation(TranslateTransform.YProperty, Move(lifted: -CurlHeight, flat: pageHeight - CurlHeight));
+        shade.BeginAnimation(OpacityProperty, Move(lifted: 1, flat: 0));
+        castShadow.BeginAnimation(OpacityProperty, Move(lifted: 0, flat: 1));
+        gloss.BeginAnimation(OpacityProperty, Envelope(1));
+        curl.BeginAnimation(OpacityProperty, Envelope(1));
+    }
+
+    #endregion
+
     #region 메모장 모드: 목록 / 편집 / 검색
 
     private void ShowMemoMode(MemoMode mode)
@@ -1006,14 +1224,17 @@ public partial class CalendarView : UserControl
         EditorTitle.Text = task.Title;
         EditorDday.IsChecked = task.IsDday;
 
-        _selectedDate = _selectionAnchor = task.Date;
-        _selectedEndDate = task.LastDate;
-        _displayMonth = new DateTime(task.Date.Year, task.Date.Month, 1);
+        WithPageFlip(task.Date, () =>
+        {
+            _selectedDate = _selectionAnchor = task.Date;
+            _selectedEndDate = task.LastDate;
+            _displayMonth = new DateTime(task.Date.Year, task.Date.Month, 1);
 
-        ShowMemoMode(MemoMode.Edit);
-        _editingTask = task;
-        RenderEditorOptions();
-        RenderCalendar();
+            ShowMemoMode(MemoMode.Edit);
+            _editingTask = task;
+            RenderEditorOptions();
+            RenderCalendar();
+        });
         Dispatcher.BeginInvoke(() =>
         {
             EditorTitle.Focus();
@@ -1218,6 +1439,7 @@ public partial class CalendarView : UserControl
     {
         AutoStartMenuItem.IsChecked = AutoStart.IsEnabled;
         HolidaysMenuItem.IsChecked = _showHolidays;
+        PageFlipMenuItem.IsChecked = _pageFlipEnabled;
         TransparencySlider.Value = Math.Round(_backgroundTransparency * 100);
         _updateMenuOverride = null;
         RenderUpdateMenu();
@@ -1230,6 +1452,12 @@ public partial class CalendarView : UserControl
         AutoStart.SetEnabled(AutoStartMenuItem.IsChecked);
 
     private void ResetBounds_Click(object sender, RoutedEventArgs e) => DesktopWidgetHost.ResetBounds();
+
+    private void PageFlipMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        _pageFlipEnabled = PageFlipMenuItem.IsChecked;
+        PageFlipEnabledChanged?.Invoke(_pageFlipEnabled);
+    }
 
     private void HolidaysMenuItem_Click(object sender, RoutedEventArgs e)
     {

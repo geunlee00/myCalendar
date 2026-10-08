@@ -216,6 +216,7 @@
                                         <MenuItem x:Name="AutoStartMenuItem" IsCheckable="True" Click="AutoStartMenuItem_Click" />
                                         <MenuItem x:Name="ResetBoundsMenuItem" Click="ResetBounds_Click" />
                                         <MenuItem x:Name="HolidaysMenuItem" IsCheckable="True" Click="HolidaysMenuItem_Click" />
+                                        <MenuItem x:Name="PageFlipMenuItem" IsCheckable="True" Click="PageFlipMenuItem_Click" />
                                         <MenuItem x:Name="UpdateMenuItem" StaysOpenOnClick="True" Click="UpdateMenuItem_Click" />
                                         <MenuItem x:Name="LanguageMenuItem">
                                             <MenuItem x:Name="KoreanMenuItem" Header="한국어" IsCheckable="True" Click="KoreanMenuItem_Click" />
@@ -405,6 +406,9 @@
                 </Grid>
             </Grid>
         </Border>
+
+        <!-- 달을 넘길 때 넘어가는 종이(찍어 둔 그림)를 얹는 층. 맨 앞 종이와 같은 자리, 스프링 고리 아래에 둔다. -->
+        <Grid x:Name="FlipLayer" Margin="0,12,0,8" IsHitTestVisible="False" />
 
         <!-- 스프링 고리: 종이 위쪽 가장자리를 넘어 구멍에 꿰어진 모습. 크기에 맞춰 코드에서 그린다. -->
         <Canvas x:Name="RingsLayer" Height="40" VerticalAlignment="Top" IsHitTestVisible="False" SizeChanged="RingsLayer_SizeChanged" />

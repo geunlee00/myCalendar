@@ -15,6 +15,9 @@ public sealed class AppSettings
     /// <summary>대한민국 공휴일 표시. 비어 있으면 처음 언어를 따릅니다(한국어면 켜고, 아니면 끕니다).</summary>
     public bool? ShowKoreanHolidays { get; set; }
 
+    /// <summary>달을 바꿀 때 종이 넘기기 효과를 보여 줄지. 비어 있으면 켭니다.</summary>
+    public bool? PageFlipAnimation { get; set; }
+
     /// <summary>카드 배경 투명도. 0이면 불투명, 1이면 투명합니다.</summary>
     public double BackgroundTransparency { get; set; }
 

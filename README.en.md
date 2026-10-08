@@ -100,6 +100,7 @@ Click a result (or press Enter) to jump to that day. **Esc** closes the search.
 | Check for updates | Check now; opens the download page if a new version exists |
 | Language (언어) | English / 한국어. Defaults to your Windows display language |
 | Show Korean public holidays | Mark Korean public holidays in red. Off by default when the app starts in English |
+| Page-turn animation | Turn the desk-calendar page when changing months. Turn it off to switch instantly |
 | Background transparency | 0–100%. Text and dates stay readable |
 | Quit | Close the calendar (same as **×**) |
 
